@@ -581,39 +581,128 @@ export interface CaptionCueWord {
 	leadingSpace?: boolean;
 }
 
-export type AutoCaptionAnimation = "none" | "fade" | "rise" | "pop";
+import type {
+	CaptionAlignment,
+	CaptionAnimationScope,
+	CaptionAnimationStyle,
+	CaptionBackgroundStyle,
+	CaptionShadowSettings,
+	CaptionStrokeSettings,
+	CaptionTextTransform,
+	CaptionVerticalPosition,
+} from "./captions/captionTypes";
+
+export type {
+	CaptionAlignment,
+	CaptionAnimationScope,
+	CaptionAnimationStyle,
+	CaptionBackgroundStyle,
+	CaptionShadowSettings,
+	CaptionStrokeSettings,
+	CaptionTextTransform,
+	CaptionVerticalPosition,
+};
+
+export type AutoCaptionAnimation = CaptionAnimationStyle;
+
+export type CaptionEngine = "google" | "whisper";
 
 export interface AutoCaptionSettings {
 	enabled: boolean;
 	/** Show the hover ghost on the timeline caption track for click-to-add. */
 	timelineQuickAdd: boolean;
+	engine: CaptionEngine;
 	language: string;
+	translate: boolean;
 	fontFamily: string;
 	fontSize: number;
-	bottomOffset: number;
-	maxWidth: number;
-	maxRows: number;
-	animationStyle: AutoCaptionAnimation;
-	boxRadius: number;
+	fontWeight?: number | string;
+	letterSpacing?: number;
+	lineHeight?: number;
+	textTransform?: CaptionTextTransform;
+	fontStyle?: "normal" | "italic";
+	textDecoration?: "none" | "underline";
+	textOpacity?: number;
+	stroke?: CaptionStrokeSettings;
+	shadow?: CaptionShadowSettings;
 	textColor: string;
 	inactiveTextColor: string;
+	activeWordColor?: string;
+	keywordColor?: string;
+	gradientText?: string | null;
+	alignment?: CaptionAlignment;
+	verticalPosition?: CaptionVerticalPosition;
+	bottomOffset: number;
+	positionX?: number;
+	positionY?: number;
+	maxWidth: number;
+	maxRows: number;
+	showSafeGuides?: boolean;
+	backgroundStyle?: CaptionBackgroundStyle;
+	backgroundColor?: string;
 	backgroundOpacity: number;
+	boxRadius: number;
+	paddingX?: number;
+	paddingY?: number;
+	animationStyle: AutoCaptionAnimation;
+	animationDurationMs?: number;
+	animationDelayMs?: number;
+	animationScope?: CaptionAnimationScope;
+	animationSpeed?: number;
+	activePresetId?: string;
 }
 
 export const DEFAULT_AUTO_CAPTION_SETTINGS: AutoCaptionSettings = {
 	enabled: false,
 	timelineQuickAdd: true,
+	engine: "google",
 	language: "auto",
+	translate: false,
 	fontFamily: getDefaultCaptionFontFamily(),
 	fontSize: 30,
+	fontWeight: 700,
+	letterSpacing: 0,
+	lineHeight: 1.25,
+	textTransform: "none",
+	fontStyle: "normal",
+	textDecoration: "none",
+	textOpacity: 1,
+	stroke: {
+		color: "#000000",
+		width: 0,
+	},
+	shadow: {
+		color: "#000000",
+		blur: 4,
+		opacity: 0.6,
+		offsetX: 0,
+		offsetY: 2,
+	},
 	bottomOffset: 3,
-	maxWidth: 62,
+	alignment: "center",
+	verticalPosition: "bottom",
+	positionX: 50,
+	positionY: 90,
+	maxWidth: 65,
 	maxRows: 1,
-	animationStyle: "fade",
+	showSafeGuides: false,
+	backgroundStyle: "rounded",
+	backgroundColor: "#000000",
+	backgroundOpacity: 0.9,
 	boxRadius: 17.5,
+	paddingX: 16,
+	paddingY: 10,
 	textColor: "#FFFFFF",
 	inactiveTextColor: "#A3A3A3",
-	backgroundOpacity: 0.9,
+	activeWordColor: "#FFE600",
+	keywordColor: "#00F0FF",
+	gradientText: null,
+	animationStyle: "fade",
+	animationDurationMs: 250,
+	animationDelayMs: 0,
+	animationScope: "word",
+	animationSpeed: 1,
+	activePresetId: "classic-white",
 };
 
 export type PlaybackSpeed = 0.25 | 0.5 | 0.75 | 1.25 | 1.5 | 1.75 | 2;

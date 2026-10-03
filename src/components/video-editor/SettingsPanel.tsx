@@ -1,6 +1,5 @@
 import { SettingsSections, SettingsCategory } from "./SettingsSections";
 import { Card, RadioGroup, Radio, Label, Description } from "@heroui/react";
-import { ProgressBar } from "@heroui/react";
 import { ColorControl, ColorPalette } from "@/components/ui/color-picker";
 import { Palette, Trash as Trash2, UploadSimple as Upload } from "@/components/ui/icons";
 import { AnimatePresence, motion } from "motion/react";
@@ -32,6 +31,7 @@ import type { AppLocale } from "../../i18n/config";
 import { SUPPORTED_LOCALES } from "../../i18n/config";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import CaptionListPanel from "./CaptionListPanel";
+import { CaptionEditorStudio } from "./captions/CaptionEditorStudio";
 import type { CaptionRetimeSpan } from "./captionOps";
 import {
 	CURSOR_MOTION_PRESETS,
@@ -47,7 +47,6 @@ import { SettingsRow } from "./SettingsRow";
 import type {
 	AnnotationRegion,
 	AnnotationType,
-	AutoCaptionAnimation,
 	AutoCaptionSettings,
 	CaptionCue,
 	CropRegion,
@@ -132,12 +131,6 @@ const GRADIENTS = [
 	"linear-gradient(to right, #0acffe 0%, #495aff 100%)",
 ];
 
-const CAPTION_ANIMATION_OPTIONS: Array<{ value: AutoCaptionAnimation; label: string }> = [
-	{ value: "none", label: "Off" },
-	{ value: "fade", label: "Fade" },
-	{ value: "rise", label: "Rise" },
-	{ value: "pop", label: "Pop" },
-];
 
 const CLICK_EFFECT_COLOR_OPTIONS = [
 	"#2563EB",
@@ -600,18 +593,6 @@ const BUILTIN_CURSOR_STYLE_OPTIONS: CursorStyleOption[] = [
 	{ value: "figma", label: "Minimal" },
 ];
 
-const CAPTION_LANGUAGE_OPTIONS = [
-	{ value: "auto", label: "Auto Detect" },
-	{ value: "en", label: "English" },
-	{ value: "es", label: "Spanish" },
-	{ value: "fr", label: "French" },
-	{ value: "de", label: "German" },
-	{ value: "it", label: "Italian" },
-	{ value: "pt", label: "Portuguese" },
-	{ value: "zh", label: "Chinese (Simplified)" },
-	{ value: "ja", label: "Japanese" },
-	{ value: "ko", label: "Korean" },
-] as const;
 
 const APP_LANGUAGE_LABELS: Record<AppLocale, string> = {
 	en: "English",
@@ -1025,7 +1006,10 @@ export function SettingsPanel({
 		() => builtInWallpapers.map((wallpaper) => wallpaper.publicPath),
 		[builtInWallpapers],
 	);
-	const captionCueCount = autoCaptions.length;
+	const selectedModelName = useMemo(() => {
+		if (!whisperModelPath) return null;
+		return whisperModelPath.split(/[/\\]/).pop() || whisperModelPath;
+	}, [whisperModelPath]);
 	const updateAutoCaptionSettings = (partial: Partial<AutoCaptionSettings>) => {
 		onAutoCaptionSettingsChange?.({
 			...autoCaptionSettings,
@@ -1982,267 +1966,29 @@ export function SettingsPanel({
 	);
 
 	const captionsSectionContent = (
-		<section className="flex flex-col gap-4">
-			<div className="flex items-center justify-between gap-3">
-				<div className="flex items-center gap-3">
-					<SectionLabel>{tSettings("captions.generation", "Generation")}</SectionLabel>
-					<Button
-						className="text-xs text-muted"
-						size="sm"
-						variant="ghost"
-						type="button"
-						onClick={() => onAutoCaptionSettingsChange?.(DEFAULT_AUTO_CAPTION_SETTINGS)}
-					>
-						{t("common.actions.reset", "Reset")}
-					</Button>
-				</div>
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<span>{tSettings("captions.enabled", "Show")}</span>
-					<Switch
-						aria-label={tSettings("captions.enabled", "Show")}
-						checked={autoCaptionSettings.enabled}
-						onCheckedChange={(enabled) => updateAutoCaptionSettings({ enabled })}
-					/>
-				</div>
-			</div>
-
-			<div className="py-2 space-y-3">
-				{advanced && (
-					<div>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={onPickWhisperModel}
-							className="h-9 w-full px-4 text-sm"
-						>
-							{tSettings("captions.useCustomModel", "Use custom")}
-						</Button>
-					</div>
-				)}
-				<div className="flex items-center justify-between gap-3">
-					<div className="text-sm font-medium text-foreground">
-						{tSettings("captions.language", "Language")}
-					</div>
-					<Select
-						value={autoCaptionSettings.language || "auto"}
-						onValueChange={(value) => updateAutoCaptionSettings({ language: value })}
-					>
-						<SelectTrigger className="h-9 w-[180px] text-sm">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{CAPTION_LANGUAGE_OPTIONS.map((option) => (
-								<SelectItem key={option.value} value={option.value}>
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-				<div className="flex items-center justify-between gap-3">
-					<div className="text-sm font-medium text-foreground">
-						{tSettings("captions.animation", "Animation")}
-					</div>
-					<Select
-						value={autoCaptionSettings.animationStyle}
-						onValueChange={(value) =>
-							updateAutoCaptionSettings({
-								animationStyle: value as AutoCaptionAnimation,
-							})
-						}
-					>
-						<SelectTrigger className="h-9 w-[180px] text-sm">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{CAPTION_ANIMATION_OPTIONS.map((option) => (
-								<SelectItem key={option.value} value={option.value}>
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<div className="grid w-full grid-cols-1 gap-2">
-						{whisperModelDownloadStatus === "downloading" ? (
-							<Button type="button" disabled className="h-9 w-full px-4 text-sm">
-								{tSettings("captions.downloading", "Downloading...")}{" "}
-								{Math.round(whisperModelDownloadProgress)}%
-							</Button>
-						) : whisperModelPath ? (
-							<Button
-								type="button"
-								variant="outline"
-								onClick={onDeleteWhisperSmallModel}
-								className="h-9 w-full px-4 text-sm"
-							>
-								{tSettings("captions.deleteModel", "Delete Model")}
-							</Button>
-						) : (
-							<Button
-								type="button"
-								onClick={onDownloadWhisperSmallModel}
-								className="h-9 w-full px-4 text-sm"
-							>
-								{tSettings("captions.downloadModel", "Download Model")}
-							</Button>
-						)}
-						<Button
-							type="button"
-							variant="outline"
-							onClick={onClearAutoCaptions}
-							disabled={captionCueCount === 0}
-							className="h-9 w-full px-4 text-sm"
-						>
-							{tSettings("captions.clearFull", "Clear Captions")}
-						</Button>
-					</div>
-				</div>
-				<div className="flex flex-col gap-4">
-					<Button
-						type="button"
-						onClick={onGenerateAutoCaptions}
-						disabled={isGeneratingCaptions || !whisperModelPath}
-						className="h-9 w-full px-4 text-sm"
-					>
-						{isGeneratingCaptions
-							? tSettings("captions.generating", "Generating...")
-							: captionCueCount > 0
-								? tSettings("captions.regenerateFull", "Regenerate Captions")
-								: tSettings("captions.generateFull", "Generate Captions")}
-					</Button>
-					{isGeneratingCaptions ? (
-						<div className="space-y-1">
-							<div className="text-xs text-muted-foreground">
-								{tSettings(
-									"captions.generatingStatus",
-									"Generating captions. This can take a moment.",
-								)}
-							</div>
-							<ProgressBar aria-label="Downloading caption model" isIndeterminate>
-								<ProgressBar.Track>
-									<ProgressBar.Fill />
-								</ProgressBar.Track>
-							</ProgressBar>
-						</div>
-					) : null}
-				</div>
-				{whisperModelDownloadStatus === "downloading" ? (
-					<div className="h-2 overflow-hidden rounded-full bg-foreground/5">
-						<div
-							className="h-full rounded-full bg-accent transition-all"
-							style={{ width: `${whisperModelDownloadProgress}%` }}
-						/>
-					</div>
-				) : null}
-			</div>
-
-			<div className="flex flex-col gap-3">
-				{advanced && (
-					<div className="flex items-center justify-between gap-3 py-2">
-						<div className="text-xs text-muted-foreground">
-							{tSettings("captions.timelineQuickAdd", "Hover to add on timeline")}
-						</div>
-						<Switch
-							checked={autoCaptionSettings.timelineQuickAdd}
-							onCheckedChange={(timelineQuickAdd) =>
-								updateAutoCaptionSettings({ timelineQuickAdd })
-							}
-							aria-label={tSettings(
-								"captions.timelineQuickAdd",
-								"Hover to add on timeline",
-							)}
-						/>
-					</div>
-				)}
-
-				<div className="mb-1 text-sm font-medium text-foreground">
-					{tSettings("captions.fontSettings", "Font Settings")}
-				</div>
-				<SliderControl
-					label={tSettings("captions.fontSize", "Font size")}
-					value={autoCaptionSettings.fontSize}
-					min={16}
-					max={72}
-					step={1}
-					onChange={(value) => updateAutoCaptionSettings({ fontSize: value })}
-					formatValue={(value) => `${Math.round(value)}px`}
-				/>
-				<div className="flex items-center justify-between py-2">
-					<span className="text-sm font-medium text-foreground">
-						{tSettings("captions.textColor", "Text color")}
-					</span>
-					<ColorControl
-						compact
-						label={tSettings("captions.textColor", "Text color")}
-						value={autoCaptionSettings.textColor}
-						onChange={(color) => updateAutoCaptionSettings({ textColor: color })}
-					/>
-				</div>
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.rowCount", "Rows")}
-						value={autoCaptionSettings.maxRows}
-						min={1}
-						max={4}
-						step={1}
-						onChange={(value) =>
-							updateAutoCaptionSettings({ maxRows: Math.round(value) })
-						}
-						formatValue={(value) => `${Math.round(value)}`}
-					/>
-				)}
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.bottomOffset", "Bottom offset")}
-						value={autoCaptionSettings.bottomOffset}
-						min={0}
-						max={30}
-						step={1}
-						onChange={(value) => updateAutoCaptionSettings({ bottomOffset: value })}
-						formatValue={(value) => `${Math.round(value)}%`}
-					/>
-				)}
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.maxWidth", "Max width")}
-						value={autoCaptionSettings.maxWidth}
-						min={40}
-						max={95}
-						step={1}
-						onChange={(value) => updateAutoCaptionSettings({ maxWidth: value })}
-						formatValue={(value) => `${Math.round(value)}%`}
-					/>
-				)}
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.boxRadius", "Box radius")}
-						value={autoCaptionSettings.boxRadius}
-						min={0}
-						max={40}
-						step={0.5}
-						onChange={(value) => updateAutoCaptionSettings({ boxRadius: value })}
-						formatValue={(value) =>
-							`${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}px`
-						}
-					/>
-				)}
-				{advanced && (
-					<SliderControl
-						label={tSettings("captions.backgroundOpacity", "Background opacity")}
-						value={autoCaptionSettings.backgroundOpacity}
-						min={0}
-						max={1}
-						step={0.01}
-						onChange={(value) =>
-							updateAutoCaptionSettings({ backgroundOpacity: value })
-						}
-						formatValue={(value) => `${Math.round(value * 100)}%`}
-					/>
-				)}
-			</div>
-		</section>
+		<CaptionEditorStudio
+			settings={autoCaptionSettings}
+			onUpdateSettings={updateAutoCaptionSettings}
+			cues={autoCaptions}
+			currentTimeMs={captionCurrentTimeMs}
+			selectedCaptionId={selectedCaptionId}
+			isGeneratingCaptions={isGeneratingCaptions}
+			whisperModelPath={whisperModelPath}
+			whisperModelDownloadStatus={whisperModelDownloadStatus}
+			whisperModelDownloadProgress={whisperModelDownloadProgress}
+			selectedModelName={selectedModelName}
+			onGenerateAutoCaptions={onGenerateAutoCaptions}
+			onClearAutoCaptions={onClearAutoCaptions}
+			onPickWhisperModel={onPickWhisperModel}
+			onDownloadWhisperSmallModel={onDownloadWhisperSmallModel}
+			onDeleteWhisperSmallModel={onDeleteWhisperSmallModel}
+			onBeginCaptionEdit={onBeginCaptionEdit}
+			onCaptionTextEdit={onCaptionTextEdit}
+			onCaptionRetime={onCaptionRetime}
+			onCaptionSplit={onCaptionSplit}
+			onCaptionMerge={onCaptionMerge}
+			onCaptionDelete={onCaptionDelete}
+		/>
 	);
 
 	const effectSectionContent = (() => {

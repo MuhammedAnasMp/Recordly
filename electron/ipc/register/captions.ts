@@ -227,9 +227,11 @@ export function registerCaptionHandlers() {
 			_,
 			options: {
 				videoPath: string;
-				whisperExecutablePath: string;
-				whisperModelPath: string;
+				engine?: "google" | "whisper";
+				whisperExecutablePath?: string;
+				whisperModelPath?: string | null;
 				language?: string;
+				translate?: boolean;
 			},
 		) => {
 			try {

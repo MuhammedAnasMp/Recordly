@@ -45,7 +45,8 @@ it("prefers valid JSON word timing", async () => {
 	expect(cues[0].words).toHaveLength(2);
 	expect(cues[0].words?.[1].startMs).toBe(1800);
 });
-it("still surfaces missing subtitle output", async () => {
+it("returns empty cues when subtitle output file is missing", async () => {
 	await fs.rm(`${output}.srt`);
-	await expect(readWhisperCaptionOutput(output, false)).rejects.toMatchObject({ code: "ENOENT" });
+	const cues = await readWhisperCaptionOutput(output, false);
+	expect(cues).toEqual([]);
 });

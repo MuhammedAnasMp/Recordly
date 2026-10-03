@@ -758,9 +758,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	generateAutoCaptions: (options: {
 		videoPath: string;
+		engine?: "google" | "whisper";
 		whisperExecutablePath?: string;
-		whisperModelPath: string;
+		whisperModelPath?: string | null;
 		language?: string;
+		translate?: boolean;
 	}) => {
 		return ipcRenderer.invoke("generate-auto-captions", options);
 	},

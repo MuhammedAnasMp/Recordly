@@ -227,8 +227,8 @@ function normalizeAutoCaptionAnimation(
 	value: unknown,
 	fallback: AutoCaptionAnimation,
 ): AutoCaptionAnimation {
-	return value === "none" || value === "fade" || value === "rise" || value === "pop"
-		? value
+	return typeof value === "string" && value.trim()
+		? (value as AutoCaptionAnimation)
 		: fallback;
 }
 
@@ -750,31 +750,110 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			typeof rawAutoCaptionSettings.timelineQuickAdd === "boolean"
 				? rawAutoCaptionSettings.timelineQuickAdd
 				: DEFAULT_AUTO_CAPTION_SETTINGS.timelineQuickAdd,
+		engine:
+			rawAutoCaptionSettings.engine === "google" || rawAutoCaptionSettings.engine === "whisper"
+				? rawAutoCaptionSettings.engine
+				: DEFAULT_AUTO_CAPTION_SETTINGS.engine,
 		language:
 			typeof rawAutoCaptionSettings.language === "string" &&
 			rawAutoCaptionSettings.language.trim()
 				? rawAutoCaptionSettings.language.trim()
 				: DEFAULT_AUTO_CAPTION_SETTINGS.language,
-		fontFamily: getDefaultCaptionFontFamily(),
+		translate:
+			typeof rawAutoCaptionSettings.translate === "boolean"
+				? rawAutoCaptionSettings.translate
+				: typeof (rawAutoCaptionSettings as { noTranslate?: boolean }).noTranslate === "boolean"
+					? !(rawAutoCaptionSettings as { noTranslate?: boolean }).noTranslate
+					: DEFAULT_AUTO_CAPTION_SETTINGS.translate,
+		fontFamily:
+			typeof rawAutoCaptionSettings.fontFamily === "string" &&
+			rawAutoCaptionSettings.fontFamily.trim()
+				? rawAutoCaptionSettings.fontFamily.trim()
+				: getDefaultCaptionFontFamily(),
 		fontSize: isFiniteNumber(rawAutoCaptionSettings.fontSize)
-			? clamp(rawAutoCaptionSettings.fontSize, 16, 72)
+			? clamp(rawAutoCaptionSettings.fontSize, 12, 120)
 			: DEFAULT_AUTO_CAPTION_SETTINGS.fontSize,
+		fontWeight:
+			rawAutoCaptionSettings.fontWeight !== undefined
+				? rawAutoCaptionSettings.fontWeight
+				: DEFAULT_AUTO_CAPTION_SETTINGS.fontWeight,
+		letterSpacing: isFiniteNumber(rawAutoCaptionSettings.letterSpacing)
+			? rawAutoCaptionSettings.letterSpacing
+			: DEFAULT_AUTO_CAPTION_SETTINGS.letterSpacing,
+		lineHeight: isFiniteNumber(rawAutoCaptionSettings.lineHeight)
+			? rawAutoCaptionSettings.lineHeight
+			: DEFAULT_AUTO_CAPTION_SETTINGS.lineHeight,
+		textTransform:
+			rawAutoCaptionSettings.textTransform ??
+			DEFAULT_AUTO_CAPTION_SETTINGS.textTransform,
+		fontStyle:
+			rawAutoCaptionSettings.fontStyle ?? DEFAULT_AUTO_CAPTION_SETTINGS.fontStyle,
+		textDecoration:
+			rawAutoCaptionSettings.textDecoration ??
+			DEFAULT_AUTO_CAPTION_SETTINGS.textDecoration,
+		textOpacity: isFiniteNumber(rawAutoCaptionSettings.textOpacity)
+			? clamp(rawAutoCaptionSettings.textOpacity, 0, 1)
+			: (DEFAULT_AUTO_CAPTION_SETTINGS.textOpacity ?? 1),
+		stroke: rawAutoCaptionSettings.stroke ?? DEFAULT_AUTO_CAPTION_SETTINGS.stroke,
+		shadow: rawAutoCaptionSettings.shadow ?? DEFAULT_AUTO_CAPTION_SETTINGS.shadow,
 		bottomOffset: isFiniteNumber(rawAutoCaptionSettings.bottomOffset)
-			? clamp(rawAutoCaptionSettings.bottomOffset, 0, 30)
+			? clamp(rawAutoCaptionSettings.bottomOffset, 0, 60)
 			: DEFAULT_AUTO_CAPTION_SETTINGS.bottomOffset,
+		alignment:
+			rawAutoCaptionSettings.alignment ??
+			DEFAULT_AUTO_CAPTION_SETTINGS.alignment,
+		verticalPosition:
+			rawAutoCaptionSettings.verticalPosition ??
+			DEFAULT_AUTO_CAPTION_SETTINGS.verticalPosition,
+		positionX: isFiniteNumber(rawAutoCaptionSettings.positionX)
+			? rawAutoCaptionSettings.positionX
+			: DEFAULT_AUTO_CAPTION_SETTINGS.positionX,
+		positionY: isFiniteNumber(rawAutoCaptionSettings.positionY)
+			? rawAutoCaptionSettings.positionY
+			: DEFAULT_AUTO_CAPTION_SETTINGS.positionY,
 		maxWidth: isFiniteNumber(rawAutoCaptionSettings.maxWidth)
-			? clamp(rawAutoCaptionSettings.maxWidth, 40, 95)
+			? clamp(rawAutoCaptionSettings.maxWidth, 20, 100)
 			: DEFAULT_AUTO_CAPTION_SETTINGS.maxWidth,
 		maxRows: isFiniteNumber(rawAutoCaptionSettings.maxRows)
-			? clamp(Math.round(rawAutoCaptionSettings.maxRows), 1, 4)
+			? clamp(Math.round(rawAutoCaptionSettings.maxRows), 1, 6)
 			: DEFAULT_AUTO_CAPTION_SETTINGS.maxRows,
+		showSafeGuides: Boolean(rawAutoCaptionSettings.showSafeGuides),
+		backgroundStyle:
+			rawAutoCaptionSettings.backgroundStyle ??
+			DEFAULT_AUTO_CAPTION_SETTINGS.backgroundStyle,
+		backgroundColor:
+			typeof rawAutoCaptionSettings.backgroundColor === "string"
+				? rawAutoCaptionSettings.backgroundColor
+				: DEFAULT_AUTO_CAPTION_SETTINGS.backgroundColor,
 		animationStyle: normalizeAutoCaptionAnimation(
 			rawAutoCaptionSettings.animationStyle,
 			DEFAULT_AUTO_CAPTION_SETTINGS.animationStyle,
 		),
+		animationDurationMs: isFiniteNumber(rawAutoCaptionSettings.animationDurationMs)
+			? rawAutoCaptionSettings.animationDurationMs
+			: DEFAULT_AUTO_CAPTION_SETTINGS.animationDurationMs,
+		animationDelayMs: isFiniteNumber(rawAutoCaptionSettings.animationDelayMs)
+			? rawAutoCaptionSettings.animationDelayMs
+			: DEFAULT_AUTO_CAPTION_SETTINGS.animationDelayMs,
+		animationScope:
+			rawAutoCaptionSettings.animationScope ??
+			DEFAULT_AUTO_CAPTION_SETTINGS.animationScope,
+		animationSpeed: isFiniteNumber(rawAutoCaptionSettings.animationSpeed)
+			? rawAutoCaptionSettings.animationSpeed
+			: DEFAULT_AUTO_CAPTION_SETTINGS.animationSpeed,
+		activePresetId:
+			typeof rawAutoCaptionSettings.activePresetId === "string"
+				? rawAutoCaptionSettings.activePresetId
+				: DEFAULT_AUTO_CAPTION_SETTINGS.activePresetId,
 		boxRadius: isFiniteNumber(rawAutoCaptionSettings.boxRadius)
-			? clamp(rawAutoCaptionSettings.boxRadius, 0, 40)
+			? clamp(rawAutoCaptionSettings.boxRadius, 0, 50)
 			: DEFAULT_AUTO_CAPTION_SETTINGS.boxRadius,
+		paddingX: isFiniteNumber(rawAutoCaptionSettings.paddingX)
+			? rawAutoCaptionSettings.paddingX
+			: DEFAULT_AUTO_CAPTION_SETTINGS.paddingX,
+		paddingY: isFiniteNumber(rawAutoCaptionSettings.paddingY)
+			? rawAutoCaptionSettings.paddingY
+			: DEFAULT_AUTO_CAPTION_SETTINGS.paddingY,
 		textColor:
 			typeof rawAutoCaptionSettings.textColor === "string" &&
 			rawAutoCaptionSettings.textColor.trim()
@@ -785,6 +864,15 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			rawAutoCaptionSettings.inactiveTextColor.trim()
 				? rawAutoCaptionSettings.inactiveTextColor
 				: DEFAULT_AUTO_CAPTION_SETTINGS.inactiveTextColor,
+		activeWordColor:
+			typeof rawAutoCaptionSettings.activeWordColor === "string"
+				? rawAutoCaptionSettings.activeWordColor
+				: DEFAULT_AUTO_CAPTION_SETTINGS.activeWordColor,
+		keywordColor:
+			typeof rawAutoCaptionSettings.keywordColor === "string"
+				? rawAutoCaptionSettings.keywordColor
+				: DEFAULT_AUTO_CAPTION_SETTINGS.keywordColor,
+		gradientText: rawAutoCaptionSettings.gradientText ?? null,
 		backgroundOpacity: isFiniteNumber(rawAutoCaptionSettings.backgroundOpacity)
 			? clamp(rawAutoCaptionSettings.backgroundOpacity, 0, 1)
 			: DEFAULT_AUTO_CAPTION_SETTINGS.backgroundOpacity,

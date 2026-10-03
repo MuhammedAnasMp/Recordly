@@ -87,6 +87,9 @@ import {
 	type ZoomRegion,
 	type ZoomTransitionEasing,
 } from "./types";
+import { ReelsSafeAreaOverlay } from "./captions/ReelsSafeAreaOverlay";
+import { getCaptionAnimationKeyframe } from "./captions/captionAnimations";
+import "./captions/captionAnimations.css";
 import { isAnnotationActiveAtTime } from "./videoPlayback/annotationVisibility";
 import { createClipPlayback, findPreviewClipAtTimelineTime } from "./videoPlayback/clipPlayback";
 import { DEFAULT_FOCUS } from "./videoPlayback/constants";
@@ -605,6 +608,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				overlayWidth,
 				autoCaptionSettings.maxWidth,
 				fontSize,
+				autoCaptionSettings.paddingX,
 			);
 			const measurementCanvas = document.createElement("canvas");
 			const measurementContext = measurementCanvas.getContext("2d");
@@ -612,7 +616,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				return null;
 			}
 
-			measurementContext.font = `${CAPTION_FONT_WEIGHT} ${fontSize}px ${autoCaptionSettings.fontFamily || getDefaultCaptionFontFamily()}`;
+			const fontWeight = autoCaptionSettings.fontWeight ?? CAPTION_FONT_WEIGHT;
+			measurementContext.font = `${fontWeight} ${fontSize}px ${autoCaptionSettings.fontFamily || getDefaultCaptionFontFamily()}`;
 
 			return buildActiveCaptionLayout({
 				cues: autoCaptions,
@@ -640,6 +645,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				overlayWidth,
 				autoCaptionSettings.maxWidth,
 				fontSize,
+				autoCaptionSettings.paddingX,
 			);
 			const measurementCanvas = document.createElement("canvas");
 			const measurementContext = measurementCanvas.getContext("2d");
@@ -647,7 +653,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				return null;
 			}
 
-			measurementContext.font = `${CAPTION_FONT_WEIGHT} ${fontSize}px ${autoCaptionSettings.fontFamily || getDefaultCaptionFontFamily()}`;
+			const fontWeight = autoCaptionSettings.fontWeight ?? CAPTION_FONT_WEIGHT;
+			measurementContext.font = `${fontWeight} ${fontSize}px ${autoCaptionSettings.fontFamily || getDefaultCaptionFontFamily()}`;
 			const measuredWidth = Math.max(
 				...captionEditSession.draft
 					.split(/\r?\n/)
@@ -2482,18 +2489,41 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								</div>
 							</div>
 						) : null}
+						<ReelsSafeAreaOverlay visible={Boolean(autoCaptionSettings?.showSafeGuides)} />
 						{!isGap && activeCaptionLayout && autoCaptionSettings ? (
 							<div
-								className="absolute inset-x-0 flex justify-center"
+								className={`absolute inset-x-0 flex ${
+									autoCaptionSettings.alignment === "left"
+										? "justify-start px-8"
+										: autoCaptionSettings.alignment === "right"
+											? "justify-end px-8"
+											: "justify-center"
+								}`}
 								style={{
-									bottom: `${autoCaptionSettings.bottomOffset}%`,
+									bottom:
+										autoCaptionSettings.verticalPosition === "top"
+											? undefined
+											: autoCaptionSettings.verticalPosition === "middle"
+												? "45%"
+												: `${autoCaptionSettings.bottomOffset}%`,
+									top:
+										autoCaptionSettings.verticalPosition === "top"
+											? `${autoCaptionSettings.bottomOffset || 10}%`
+											: undefined,
 									pointerEvents: onEditAutoCaption ? "auto" : "none",
 								}}
 							>
 								<div
 									style={{
-										maxWidth: `${autoCaptionSettings.maxWidth}%`,
-										opacity: activeCaptionLayout.opacity,
+										maxWidth:
+											autoCaptionSettings.backgroundStyle === "fullWidth"
+												? "100%"
+												: `${autoCaptionSettings.maxWidth}%`,
+										width:
+											autoCaptionSettings.backgroundStyle === "fullWidth"
+												? "100%"
+												: undefined,
+										opacity: (activeCaptionLayout.opacity) * (autoCaptionSettings.textOpacity ?? 1),
 										transform: `translateY(${activeCaptionLayout.translateY}px) scale(${activeCaptionLayout.scale})`,
 										transformOrigin: "center center",
 									}}
@@ -2535,41 +2565,81 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 											}
 										}}
 										style={{
-											backgroundColor: `rgba(0, 0, 0, ${autoCaptionSettings.backgroundOpacity})`,
+											backgroundColor:
+												autoCaptionSettings.backgroundStyle === "none" ||
+												autoCaptionSettings.backgroundStyle === "wordBadge"
+													? "transparent"
+													: autoCaptionSettings.backgroundStyle === "transparent"
+														? "rgba(255, 255, 255, 0.08)"
+														: autoCaptionSettings.backgroundColor
+															? `${autoCaptionSettings.backgroundColor}${Math.round(
+																	(autoCaptionSettings.backgroundOpacity ?? 0.9) * 255,
+																)
+																	.toString(16)
+																	.padStart(2, "0")}`
+															: `rgba(0, 0, 0, ${autoCaptionSettings.backgroundOpacity})`,
+											backdropFilter:
+												autoCaptionSettings.backgroundStyle === "transparent"
+													? "blur(12px)"
+													: undefined,
+											border:
+												autoCaptionSettings.backgroundStyle === "transparent"
+													? "1px solid rgba(255, 255, 255, 0.15)"
+													: undefined,
 											fontFamily: captionFontFamily,
 											fontSize: `${getCaptionScaledFontSize(
 												autoCaptionSettings.fontSize,
 												overlayRef.current?.clientWidth || 960,
 												autoCaptionSettings.maxWidth,
 											)}px`,
-											lineHeight: CAPTION_LINE_HEIGHT,
-											textAlign: "center",
-											fontWeight: CAPTION_FONT_WEIGHT,
-											padding: `${
-												getCaptionPadding(
-													getCaptionScaledFontSize(
-														autoCaptionSettings.fontSize,
-														overlayRef.current?.clientWidth || 960,
-														autoCaptionSettings.maxWidth,
-													),
-												).y
-											}px ${
-												getCaptionPadding(
-													getCaptionScaledFontSize(
-														autoCaptionSettings.fontSize,
-														overlayRef.current?.clientWidth || 960,
-														autoCaptionSettings.maxWidth,
-													),
-												).x
-											}px`,
-											borderRadius: `${getCaptionScaledRadius(
-												autoCaptionSettings.boxRadius,
-												getCaptionScaledFontSize(
-													autoCaptionSettings.fontSize,
-													overlayRef.current?.clientWidth || 960,
-													autoCaptionSettings.maxWidth,
-												),
-											)}px`,
+											lineHeight: autoCaptionSettings.lineHeight ?? CAPTION_LINE_HEIGHT,
+											textAlign: autoCaptionSettings.alignment ?? "center",
+											fontWeight: autoCaptionSettings.fontWeight ?? CAPTION_FONT_WEIGHT,
+											letterSpacing: `${autoCaptionSettings.letterSpacing ?? 0}px`,
+											textTransform: autoCaptionSettings.textTransform ?? "none",
+											fontStyle: autoCaptionSettings.fontStyle ?? "normal",
+											textDecoration: autoCaptionSettings.textDecoration ?? "none",
+											padding:
+												autoCaptionSettings.backgroundStyle === "none" ||
+												autoCaptionSettings.backgroundStyle === "wordBadge"
+													? "4px 8px"
+													: `${
+															getCaptionPadding(
+																getCaptionScaledFontSize(
+																	autoCaptionSettings.fontSize,
+																	overlayRef.current?.clientWidth || 960,
+																	autoCaptionSettings.maxWidth,
+																),
+																autoCaptionSettings.paddingX,
+																autoCaptionSettings.paddingY,
+															).y
+														}px ${
+															getCaptionPadding(
+																getCaptionScaledFontSize(
+																	autoCaptionSettings.fontSize,
+																	overlayRef.current?.clientWidth || 960,
+																	autoCaptionSettings.maxWidth,
+																),
+																autoCaptionSettings.paddingX,
+																autoCaptionSettings.paddingY,
+															).x
+														}px`,
+											borderRadius:
+												autoCaptionSettings.backgroundStyle === "pill"
+													? "9999px"
+													: autoCaptionSettings.backgroundStyle === "fullWidth"
+														? "0px"
+														: autoCaptionSettings.backgroundStyle === "none" ||
+															  autoCaptionSettings.backgroundStyle === "wordBadge"
+															? "0px"
+															: `${getCaptionScaledRadius(
+																	autoCaptionSettings.boxRadius,
+																	getCaptionScaledFontSize(
+																		autoCaptionSettings.fontSize,
+																		overlayRef.current?.clientWidth || 960,
+																		autoCaptionSettings.maxWidth,
+																	),
+																)}px`,
 											boxSizing: "border-box",
 											cursor:
 												onEditAutoCaption && !isCaptionEditing
@@ -2635,6 +2705,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 																	960,
 																autoCaptionSettings.maxWidth,
 															),
+															autoCaptionSettings.paddingX,
 														)
 													}px`,
 													minHeight: `${
@@ -2644,14 +2715,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 														) *
 														(
 															captionEditTextMetrics?.fontSize ??
-																getCaptionScaledFontSize(
-																	autoCaptionSettings.fontSize,
-																	overlayRef.current
-																		?.clientWidth || 960,
-																	autoCaptionSettings.maxWidth,
-																)
+															getCaptionScaledFontSize(
+																autoCaptionSettings.fontSize,
+																overlayRef.current
+																	?.clientWidth || 960,
+																autoCaptionSettings.maxWidth,
+															)
 														) *
-														CAPTION_LINE_HEIGHT
+														(autoCaptionSettings.lineHeight ?? CAPTION_LINE_HEIGHT)
 													}px`,
 													resize: "none",
 													border: "0",
@@ -2663,7 +2734,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 													color: autoCaptionSettings.textColor,
 													font: "inherit",
 													lineHeight: "inherit",
-													textAlign: "center",
+													textAlign: autoCaptionSettings.alignment ?? "center",
 												}}
 											/>
 										) : (
@@ -2672,7 +2743,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 													key={`${activeCaptionLayout.blockKey}-${line.startWordIndex}`}
 													style={{
 														display: "flex",
-														justifyContent: "center",
+														justifyContent:
+															autoCaptionSettings.alignment === "left"
+																? "flex-start"
+																: autoCaptionSettings.alignment === "right"
+																	? "flex-end"
+																	: "center",
 														flexWrap: "nowrap",
 														whiteSpace: "nowrap",
 													}}
@@ -2684,16 +2760,59 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 																word.state,
 															);
 
+														const isWordActive = visualState.isActive;
+														const wordColor = isWordActive
+															? autoCaptionSettings.activeWordColor || "#FFE600"
+															: visualState.isInactive
+																? autoCaptionSettings.inactiveTextColor || "#A3A3A3"
+																: autoCaptionSettings.textColor;
+
+														const isWordBadge =
+															autoCaptionSettings.backgroundStyle === "wordBadge" &&
+															isWordActive;
+
+														const strokeStyle = autoCaptionSettings.stroke?.width
+															? `${autoCaptionSettings.stroke.width}px ${
+																	autoCaptionSettings.stroke.color || "#000000"
+																}`
+															: undefined;
+
+														const shadowStyle =
+															autoCaptionSettings.shadow?.blur ||
+															autoCaptionSettings.shadow?.offsetX ||
+															autoCaptionSettings.shadow?.offsetY
+																? `${autoCaptionSettings.shadow.offsetX ?? 0}px ${
+																		autoCaptionSettings.shadow.offsetY ?? 2
+																	}px ${autoCaptionSettings.shadow.blur ?? 4}px ${
+																		autoCaptionSettings.shadow.color || "#000000"
+																	}`
+																: undefined;
+
+														const wordAnimKeyframe =
+															isWordActive &&
+															autoCaptionSettings.animationScope === "word" &&
+															autoCaptionSettings.animationStyle !== "none"
+																? getCaptionAnimationKeyframe(autoCaptionSettings.animationStyle)
+																: "";
+
 														return (
 															<span
 																key={`${activeCaptionLayout.blockKey}-${word.index}`}
 																style={{
 																	display: "inline-block",
 																	whiteSpace: "pre",
-																	color: visualState.isInactive
-																		? autoCaptionSettings.inactiveTextColor
-																		: autoCaptionSettings.textColor,
+																	color: wordColor,
 																	opacity: visualState.opacity,
+																	WebkitTextStroke: strokeStyle,
+																	textShadow: shadowStyle,
+																	backgroundColor: isWordBadge
+																		? autoCaptionSettings.backgroundColor || "#000000"
+																		: undefined,
+																	padding: isWordBadge ? "2px 8px" : undefined,
+																	borderRadius: isWordBadge ? "8px" : undefined,
+																	animation: wordAnimKeyframe
+																		? `${wordAnimKeyframe} ${(autoCaptionSettings.animationDurationMs ?? 250) / (autoCaptionSettings.animationSpeed ?? 1)}ms ease-out forwards`
+																		: undefined,
 																}}
 															>
 																{`${word.leadingSpace ? " " : ""}${word.text}`}

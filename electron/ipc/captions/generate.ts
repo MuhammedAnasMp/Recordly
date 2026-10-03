@@ -1,6 +1,7 @@
 import { execFile, spawnSync } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { app } from "electron";
@@ -18,6 +19,7 @@ import { readWhisperCaptionOutput } from "./output";
 import { isMissingWindowsWhisperRuntimeDependency } from "./runtimeErrors";
 import { mergeCaptionSources } from "./mergeSources";
 import { segmentCuesIntoPhrases } from "./segment";
+import { generateCaptionsWithGoogleSpeech } from "./googleSpeech";
 import {
 	parseSilenceIntervals,
 	SILENCE_DETECT_MIN_S,
@@ -231,9 +233,12 @@ export async function detectSilenceIntervals(options: {
 
 async function generateCaptionsForSource(options: {
 	videoPath: string;
+	engine?: "google" | "whisper";
 	whisperExecutablePath?: string;
-	whisperModelPath: string;
+	whisperModelPath?: string | null;
 	language?: string;
+	translate?: boolean;
+	noTranslate?: boolean;
 	candidates: CaptionAudioCandidate[];
 }) {
 	const ffmpegPath = getFfmpegBinaryPath();
@@ -241,11 +246,6 @@ async function generateCaptionsForSource(options: {
 	if (!normalizedVideoPath) {
 		throw new Error("Missing source video path.");
 	}
-
-	const whisperExecutablePath = await resolveWhisperExecutablePath(options.whisperExecutablePath);
-	const whisperModelPath = path.resolve(options.whisperModelPath);
-	await ensureReadableFile(whisperExecutablePath, { executable: true });
-	await ensureReadableFile(whisperModelPath);
 
 	const tempBase = path.join(
 		app.getPath("temp"),
@@ -266,11 +266,39 @@ async function generateCaptionsForSource(options: {
 
 		const language =
 			options.language && options.language.trim() ? options.language.trim() : "auto";
+
+		if (options.engine === "google") {
+			console.log(
+				`[auto-captions] Transcribing audio with Google Speech (language: ${language})`,
+			);
+			const cues = await generateCaptionsWithGoogleSpeech({
+				wavPath,
+				ffmpegPath,
+				language,
+			});
+			return {
+				cues,
+				audioSourceLabel: audioSource.label,
+			};
+		}
+
+		if (!options.whisperModelPath) {
+			throw new Error("Whisper model path is missing. Select a model or use Google Speech engine.");
+		}
+
+		const whisperExecutablePath = await resolveWhisperExecutablePath(options.whisperExecutablePath);
+		const whisperModelPath = path.resolve(options.whisperModelPath);
+		await ensureReadableFile(whisperExecutablePath, { executable: true });
+		await ensureReadableFile(whisperModelPath);
+
+		const threadCount = Math.max(1, Math.min(os.cpus()?.length || 4, 8));
 		const whisperBaseArgs = [
 			"-m",
 			whisperModelPath,
 			"-f",
 			wavPath,
+			"-t",
+			String(threadCount),
 			"-osrt",
 			"-of",
 			outputBase,
@@ -281,6 +309,18 @@ async function generateCaptionsForSource(options: {
 			"-mc",
 			"0",
 		];
+
+		const shouldTranslate =
+			options.translate === true ||
+			(options.translate === undefined && options.noTranslate === false);
+
+		if (shouldTranslate) {
+			whisperBaseArgs.push("-tr");
+		}
+
+		console.log(
+			`[auto-captions] Transcribing audio with Whisper (language: ${language}, translate: ${shouldTranslate}, model: ${path.basename(whisperModelPath)}, args: ${whisperBaseArgs.join(" ")})`,
+		);
 
 		let jsonEnabled = true;
 		try {
@@ -333,9 +373,12 @@ async function generateCaptionsForSource(options: {
 
 export async function generateAutoCaptionsFromVideo(options: {
 	videoPath: string;
+	engine?: "google" | "whisper";
 	whisperExecutablePath?: string;
-	whisperModelPath: string;
+	whisperModelPath?: string | null;
 	language?: string;
+	translate?: boolean;
+	noTranslate?: boolean;
 }) {
 	const candidates = await resolveCaptionAudioCandidates(options.videoPath);
 	const microphone = candidates.filter((source) => source.label === "microphone audio sidecar");

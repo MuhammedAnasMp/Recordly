@@ -160,9 +160,11 @@ export function useAutoCaptionController({
 		captionGenerationInFlightRef.current = true;
 		setIsGeneratingCaptions(true);
 		try {
-			if (!whisperModelPath) {
-				toast.error("Select a Whisper model or download the small model first");
-				return;
+			let effectiveEngine = autoCaptionSettings.engine;
+			if (effectiveEngine === "whisper" && !whisperModelPath) {
+				toast.info("No offline Whisper model loaded; transcribing with Google Speech.");
+				effectiveEngine = "google";
+				setAutoCaptionSettings((current) => ({ ...current, engine: "google" }));
 			}
 			let sourcePath = resolveAutoCaptionSourcePath({ videoSourcePath, videoPath });
 			if (!sourcePath) {
@@ -190,9 +192,11 @@ export function useAutoCaptionController({
 			}
 			const result = await window.electronAPI.generateAutoCaptions({
 				videoPath: sourcePath,
+				engine: effectiveEngine,
 				whisperExecutablePath: whisperExecutablePath ?? undefined,
-				whisperModelPath,
+				whisperModelPath: whisperModelPath ?? null,
 				language: autoCaptionSettings.language,
+				translate: autoCaptionSettings.translate,
 			});
 			if (resolveAutoCaptionSourcePath(activeSourceRef.current) !== sourcePath) {
 				toast.info("Recording changed; generated captions were not applied.");
@@ -215,7 +219,9 @@ export function useAutoCaptionController({
 			setIsGeneratingCaptions(false);
 		}
 	}, [
+		autoCaptionSettings.engine,
 		autoCaptionSettings.language,
+		autoCaptionSettings.translate,
 		isGeneratingCaptions,
 		setAutoCaptionSettings,
 		setAutoCaptions,

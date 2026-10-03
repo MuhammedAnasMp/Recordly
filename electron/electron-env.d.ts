@@ -719,9 +719,11 @@ interface Window {
 		) => () => void;
 		generateAutoCaptions: (options: {
 			videoPath: string;
+			engine?: "google" | "whisper";
 			whisperExecutablePath?: string;
-			whisperModelPath: string;
+			whisperModelPath?: string | null;
 			language?: string;
+			translate?: boolean;
 		}) => Promise<{
 			success: boolean;
 			cues?: AutoCaptionCue[];

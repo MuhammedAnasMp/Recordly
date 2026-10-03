@@ -24,13 +24,15 @@ import { padSpans, resegmentCuesBySilence, type SilenceInterval } from "./silenc
  */
 
 /** A gap (ms) between two consecutive words this long or longer starts a new phrase. */
-const DEFAULT_PHRASE_PAUSE_MS = 700;
+const DEFAULT_PHRASE_PAUSE_MS = 400;
 /** An ffmpeg `silencedetect` interval this long inside a word gap also starts a new phrase. */
-const DEFAULT_SPLIT_SILENCE_MS = 1_500;
+const DEFAULT_SPLIT_SILENCE_MS = 800;
 /** Padding (ms) kept around each phrase so captions don't feel clipped. */
 const DEFAULT_EDGE_PAD_MS = 80;
 /** Safety cap: a phrase with no sentence end and no pause is split once it gets this long. */
-const DEFAULT_MAX_PHRASE_MS = 12_000;
+const DEFAULT_MAX_PHRASE_MS = 7_000;
+/** Max words in one caption piece before splitting into a new piece on the timeline. */
+const DEFAULT_MAX_WORDS_PER_PHRASE = 14;
 
 /**
  * A caption shorter than this (ms) is "too quick" and may be merged with an adjacent short
@@ -52,6 +54,8 @@ export interface SegmentOptions {
 	edgePadMs?: number;
 	/** Safety cap (ms) that splits a punctuation-less, pause-less runaway phrase. */
 	maxPhraseMs?: number;
+	/** Max words per phrase piece. */
+	maxWordsPerPhrase?: number;
 	/** A caption shorter than this (ms) may be merged with an adjacent short caption. */
 	minCaptionMs?: number;
 	/** Only merge short captions separated by at most this gap (ms). */
@@ -182,13 +186,19 @@ function normalizePhraseWords(words: CaptionWordPayload[]): CaptionWordPayload[]
 	});
 }
 
-/** Group a cue's words into runs that each end on a sentence boundary. */
+/** Group a cue's words into runs that each end on a sentence boundary or word cap. */
 function groupWordsBySentence(words: CaptionWordPayload[]): CaptionWordPayload[][] {
 	const groups: CaptionWordPayload[][] = [];
 	let current: CaptionWordPayload[] = [];
 	words.forEach((word, index) => {
 		current.push(word);
-		if (endsSentence(word.text) && index < words.length - 1) {
+		const phraseDuration = current.length > 1 ? word.endMs - current[0].startMs : 0;
+		if (
+			(endsSentence(word.text) ||
+				current.length >= DEFAULT_MAX_WORDS_PER_PHRASE ||
+				phraseDuration >= DEFAULT_MAX_PHRASE_MS) &&
+			index < words.length - 1
+		) {
 			groups.push(current);
 			current = [];
 		}
@@ -200,9 +210,8 @@ function groupWordsBySentence(words: CaptionWordPayload[]): CaptionWordPayload[]
 }
 
 /**
- * Split a word-less cue's text into one cue per sentence, distributing the cue's time span
- * across sentences by character length. Used on the fallback (no word timing) path so a
- * continuous paragraph still becomes one caption per sentence.
+ * Split a word-less cue's text into one cue per sentence or piece, distributing the cue's time span
+ * across sentences by character length.
  */
 function splitTextBySentence(cue: CaptionCuePayload): CaptionCuePayload[] {
 	const tokens = cue.text.trim().split(/\s+/).filter(Boolean);
@@ -214,7 +223,12 @@ function splitTextBySentence(cue: CaptionCuePayload): CaptionCuePayload[] {
 	let current: string[] = [];
 	tokens.forEach((token, index) => {
 		current.push(token);
-		if (endsSentence(token) && index < tokens.length - 1) {
+		if (
+			(endsSentence(token) ||
+				current.length >= DEFAULT_MAX_WORDS_PER_PHRASE ||
+				(cue.endMs - cue.startMs >= 15_000 && current.length >= 8)) &&
+			index < tokens.length - 1
+		) {
 			groups.push(current);
 			current = [];
 		}
@@ -390,10 +404,8 @@ export function segmentCuesIntoPhrases(
 		return renumberCues(segmented.filter((cue) => cue.endMs > cue.startMs));
 	}
 
-	// No word timings (SRT path): the silence-only segmenter trims/merges by acoustic
-	// silence but can't see sentence boundaries, so a continuous paragraph would collapse
-	// into one caption. Re-segment by silence first, then split each cue on its sentence
-	// punctuation so we still get one caption per sentence.
+	// No word timings (SRT path): Keep each Whisper speech cue distinct so timestamps
+	// aren't merged across silent gaps. Split longer cues on sentence punctuation or phrase length.
 	if (!hasWordTimings(cues)) {
 		const base = resegmentCuesBySilence(cues, silences, { splitSilenceMs, edgePadMs });
 		const sentences = base.flatMap(splitCueBySentences);
@@ -410,6 +422,7 @@ export function segmentCuesIntoPhrases(
 
 	const phrases: CaptionWordPayload[][] = [];
 	let current: CaptionWordPayload[] = [];
+	const maxWords = options.maxWordsPerPhrase ?? DEFAULT_MAX_WORDS_PER_PHRASE;
 
 	for (let index = 0; index < stream.length; index += 1) {
 		const word = stream[index];
@@ -424,6 +437,7 @@ export function segmentCuesIntoPhrases(
 		const phraseDurationMs = word.endMs - current[0].startMs;
 		const shouldBreak =
 			endsSentence(word.text) ||
+			current.length >= maxWords ||
 			gapMs >= pauseMs ||
 			// Only consult acoustic silence when there's a real gap between the words. When
 			// consecutive words overlap or abut (gapMs <= 0) a silence interval spanning that

@@ -11,6 +11,7 @@ import {
 	getCaptionTextMaxWidth,
 	getCaptionWordVisualState,
 } from "@/components/video-editor/captionStyle";
+import { ALL_CAPTION_FONTS, ensureCaptionFontLoaded } from "@/components/video-editor/captions/captionFonts";
 import type {
 	AnnotationRegion,
 	AutoCaptionSettings,
@@ -591,6 +592,23 @@ export class FrameRenderer {
 		this.annotationAssets = await preloadAnnotationAssets(this.config.annotationRegions ?? []);
 		await this.setupAnnotationLayer();
 		this.setupCaptionResources();
+
+		if (typeof document !== "undefined" && this.config.autoCaptionSettings?.fontFamily) {
+			const family = this.config.autoCaptionSettings.fontFamily.toLowerCase();
+			const matchingFont = ALL_CAPTION_FONTS.find(
+				(f) =>
+					f.fontFamily.toLowerCase().includes(family) ||
+					family.includes(f.name.toLowerCase()),
+			);
+			if (matchingFont?.googleFont) {
+				ensureCaptionFontLoaded(matchingFont.googleFont);
+			}
+			try {
+				await document.fonts.ready;
+			} catch {
+				// ignore
+			}
+		}
 
 		if (this.shouldUseZoomMotionBlur()) {
 			this.zoomBlurFilter = new ZoomBlurFilter({
@@ -1591,7 +1609,7 @@ export class FrameRenderer {
 		const cues = this.config.autoCaptions;
 		const measureCtx = this.captionMeasureCtx;
 
-		if (!settings || !cues?.length || !measureCtx) {
+		if (!settings || !settings.enabled || !cues?.length || !measureCtx) {
 			return null;
 		}
 
@@ -1601,37 +1619,70 @@ export class FrameRenderer {
 			this.config.width,
 			settings.maxWidth,
 		);
-		measureCtx.font = `${CAPTION_FONT_WEIGHT} ${fontSize}px ${fontFamily}`;
+		const fontWeight = settings.fontWeight ?? CAPTION_FONT_WEIGHT;
+		const fontStyle = settings.fontStyle ?? "normal";
+		measureCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+		if (settings.letterSpacing !== undefined && "letterSpacing" in measureCtx) {
+			(measureCtx as unknown as { letterSpacing: string }).letterSpacing = `${settings.letterSpacing}px`;
+		}
 
 		const layout = buildActiveCaptionLayout({
 			cues,
 			timeMs,
 			settings,
-			maxWidthPx: getCaptionTextMaxWidth(this.config.width, settings.maxWidth, fontSize),
+			maxWidthPx: getCaptionTextMaxWidth(
+				this.config.width,
+				settings.maxWidth,
+				fontSize,
+				settings.paddingX,
+			),
 			measureText: (text) => measureCtx.measureText(text).width,
 		});
 		if (!layout) {
 			return null;
 		}
 
-		const padding = getCaptionPadding(fontSize);
-		const lineHeight = fontSize * CAPTION_LINE_HEIGHT;
+		const padding = getCaptionPadding(fontSize, settings.paddingX, settings.paddingY);
+		const paddingX =
+			settings.backgroundStyle === "none" || settings.backgroundStyle === "wordBadge"
+				? 8
+				: padding.x;
+		const paddingY =
+			settings.backgroundStyle === "none" || settings.backgroundStyle === "wordBadge"
+				? 4
+				: padding.y;
+		const lineHeight = fontSize * (settings.lineHeight ?? CAPTION_LINE_HEIGHT);
 		const textBlockHeight = layout.visibleLines.length * lineHeight;
-		const boxHeight = textBlockHeight + padding.y * 2;
+		const boxHeight = textBlockHeight + paddingY * 2;
 		const maxMeasuredWidth = layout.visibleLines.reduce(
 			(largest, line) => Math.max(largest, line.width),
 			0,
 		);
-		const boxWidth = Math.min(
-			this.config.width * (settings.maxWidth / 100) + padding.x * 2,
-			maxMeasuredWidth + padding.x * 2,
-		);
-		const centerX = this.config.width / 2;
+		const boxWidth =
+			settings.backgroundStyle === "fullWidth"
+				? this.config.width
+				: Math.min(
+						this.config.width * (settings.maxWidth / 100) + paddingX * 2,
+						maxMeasuredWidth + paddingX * 2,
+					);
+		const sideMargin = Math.max(24, this.config.width * 0.04);
+		const centerX =
+			settings.alignment === "left"
+				? sideMargin + boxWidth / 2
+				: settings.alignment === "right"
+					? this.config.width - sideMargin - boxWidth / 2
+					: this.config.width / 2;
 		const centerY =
-			this.config.height - (this.config.height * settings.bottomOffset) / 100 - boxHeight / 2;
+			settings.verticalPosition === "top"
+				? (this.config.height * (settings.bottomOffset || 10)) / 100 + boxHeight / 2
+				: settings.verticalPosition === "middle"
+					? this.config.height / 2
+					: this.config.height -
+					  (this.config.height * settings.bottomOffset) / 100 -
+					  boxHeight / 2;
 
 		return {
-			key: `${layout.blockKey}:${layout.visiblePageIndex}:${layout.activeWordIndex}`,
+			key: `${layout.blockKey}:${layout.visiblePageIndex}:${layout.activeWordIndex}:${settings.fontSize}:${settings.fontWeight}:${settings.fontFamily}:${settings.textColor}:${settings.activeWordColor}:${settings.backgroundColor}:${settings.backgroundStyle}:${settings.stroke?.width}:${settings.shadow?.blur}`,
 			layout,
 			fontFamily,
 			fontSize,
@@ -1694,40 +1745,145 @@ export class FrameRenderer {
 		}
 
 		ctx.clearRect(0, 0, this.captionCanvas.width, this.captionCanvas.height);
-		ctx.font = `${CAPTION_FONT_WEIGHT} ${state.fontSize}px ${state.fontFamily}`;
-		ctx.fillStyle = `rgba(0, 0, 0, ${settings.backgroundOpacity})`;
-		drawSquircleOnCanvas(ctx, {
-			x: 0,
-			y: 0,
-			width: state.boxWidth,
-			height: state.boxHeight,
-			radius: getCaptionScaledRadius(settings.boxRadius, state.fontSize),
-		});
-		ctx.fill();
 
-		const padding = getCaptionPadding(state.fontSize);
+		const fontWeight = settings.fontWeight ?? CAPTION_FONT_WEIGHT;
+		const fontStyle = settings.fontStyle ?? "normal";
+		ctx.font = `${fontStyle} ${fontWeight} ${state.fontSize}px ${state.fontFamily}`;
+		if (settings.letterSpacing !== undefined && "letterSpacing" in ctx) {
+			(ctx as unknown as { letterSpacing: string }).letterSpacing = `${settings.letterSpacing}px`;
+		}
+
+		const padding = getCaptionPadding(state.fontSize, settings.paddingX, settings.paddingY);
+		const paddingX =
+			settings.backgroundStyle === "none" || settings.backgroundStyle === "wordBadge"
+				? 8
+				: padding.x;
+		const paddingY =
+			settings.backgroundStyle === "none" || settings.backgroundStyle === "wordBadge"
+				? 4
+				: padding.y;
+
+		// Draw background if not none / wordBadge
+		if (
+			settings.backgroundStyle !== "none" &&
+			settings.backgroundStyle !== "wordBadge"
+		) {
+			ctx.save();
+			if (settings.backgroundStyle === "transparent") {
+				ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+			} else if (settings.backgroundColor) {
+				const opacity = settings.backgroundOpacity ?? 0.9;
+				ctx.fillStyle = settings.backgroundColor;
+				ctx.globalAlpha = opacity;
+			} else {
+				ctx.fillStyle = `rgba(0, 0, 0, ${settings.backgroundOpacity ?? 0.9})`;
+			}
+
+			const radius =
+				settings.backgroundStyle === "pill"
+					? state.boxHeight / 2
+					: settings.backgroundStyle === "fullWidth" ||
+					    settings.backgroundStyle === "box"
+						? 0
+						: getCaptionScaledRadius(settings.boxRadius ?? 16, state.fontSize);
+
+			drawSquircleOnCanvas(ctx, {
+				x: 0,
+				y: 0,
+				width: state.boxWidth,
+				height: state.boxHeight,
+				radius,
+			});
+			ctx.fill();
+			ctx.restore();
+		}
+
 		ctx.textAlign = "left";
 		ctx.textBaseline = "middle";
 
 		state.layout.visibleLines.forEach((line, lineIndex) => {
-			let cursorX = (state.boxWidth - line.width) / 2;
-			const lineY = padding.y + state.lineHeight * lineIndex + state.lineHeight / 2;
+			let cursorX =
+				settings.alignment === "left"
+					? paddingX
+					: settings.alignment === "right"
+						? state.boxWidth - paddingX - line.width
+						: (state.boxWidth - line.width) / 2;
+			const lineY = paddingY + state.lineHeight * lineIndex + state.lineHeight / 2;
 
 			line.words.forEach((word) => {
-				const segmentText = `${word.leadingSpace ? " " : ""}${word.text}`;
+				let wordText = word.text;
+				if (settings.textTransform === "uppercase") {
+					wordText = wordText.toUpperCase();
+				} else if (settings.textTransform === "lowercase") {
+					wordText = wordText.toLowerCase();
+				} else if (settings.textTransform === "capitalize" && wordText.length > 0) {
+					wordText = wordText.charAt(0).toUpperCase() + wordText.slice(1);
+				}
+
+				const segmentText = `${word.leadingSpace ? " " : ""}${wordText}`;
 				const segmentWidth = ctx.measureText(segmentText).width;
 				const visualState = getCaptionWordVisualState(
 					state.layout.hasWordTimings,
 					word.state,
 				);
 
+				const isWordActive = visualState.isActive;
+				const wordColor = isWordActive
+					? settings.activeWordColor || "#FFE600"
+					: visualState.isInactive
+						? settings.inactiveTextColor || "#A3A3A3"
+						: settings.textColor || "#FFFFFF";
+
 				ctx.save();
 				ctx.translate(cursorX, lineY);
-				ctx.fillStyle = visualState.isInactive
-					? settings.inactiveTextColor
-					: settings.textColor;
+
+				// Word badge background if enabled
+				if (settings.backgroundStyle === "wordBadge" && isWordActive) {
+					ctx.save();
+					ctx.fillStyle = settings.backgroundColor || "#000000";
+					const badgeHeight = state.fontSize * 1.2;
+					const badgeWidth = segmentWidth + 12;
+					drawSquircleOnCanvas(ctx, {
+						x: -6,
+						y: -badgeHeight / 2,
+						width: badgeWidth,
+						height: badgeHeight,
+						radius: 8,
+					});
+					ctx.fill();
+					ctx.restore();
+				}
+
+				// Text Shadow
+				if (
+					settings.shadow &&
+					(settings.shadow.blur > 0 ||
+						settings.shadow.opacity > 0 ||
+						(settings.shadow.offsetX ?? 0) !== 0 ||
+						(settings.shadow.offsetY ?? 0) !== 0)
+				) {
+					ctx.shadowColor = settings.shadow.color || "#000000";
+					ctx.shadowBlur = settings.shadow.blur ?? 4;
+					ctx.shadowOffsetX = settings.shadow.offsetX ?? 0;
+					ctx.shadowOffsetY = settings.shadow.offsetY ?? 2;
+				}
+
+				// Stroke outline
+				if (settings.stroke && settings.stroke.width > 0) {
+					ctx.strokeStyle = settings.stroke.color || "#000000";
+					ctx.lineWidth = settings.stroke.width * 2;
+					ctx.lineJoin = "round";
+					ctx.strokeText(segmentText, 0, 0);
+				}
+
+				ctx.fillStyle = wordColor;
 				ctx.globalAlpha = visualState.opacity;
 				ctx.fillText(segmentText, 0, 0);
+
+				if (settings.textDecoration === "underline") {
+					ctx.fillRect(0, state.fontSize * 0.45, segmentWidth, Math.max(1, state.fontSize * 0.08));
+				}
+
 				ctx.restore();
 
 				cursorX += segmentWidth;
@@ -1766,11 +1922,12 @@ export class FrameRenderer {
 			return;
 		}
 
+		const settings = this.config.autoCaptionSettings;
 		this.captionContainer.visible = true;
 		this.captionSprite.visible = true;
 		this.captionSprite.position.set(state.centerX, state.centerY + state.layout.translateY);
 		this.captionSprite.scale.set(state.layout.scale);
-		this.captionSprite.alpha = state.layout.opacity;
+		this.captionSprite.alpha = state.layout.opacity * (settings?.textOpacity ?? 1);
 	}
 
 	private async syncBackgroundFrame(timeSeconds: number): Promise<void> {
