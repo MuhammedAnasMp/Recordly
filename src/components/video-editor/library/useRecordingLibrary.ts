@@ -205,6 +205,7 @@ export function useRecordingLibrary(
 				...addedZooms,
 			]);
 			timeline.setAnnotationRegions((current) => rippleRegions(current, before, sequence));
+			timeline.setGestureRegions((current) => rippleRegions(current, before, sequence));
 			timeline.setAudioRegions((current) => rippleRegionAnchors(current, before, sequence));
 			timeline.setSelectedClipId(id);
 			if (media.webcam)

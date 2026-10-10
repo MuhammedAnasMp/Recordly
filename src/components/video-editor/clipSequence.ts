@@ -110,6 +110,27 @@ export function rippleRegions<T extends { startMs: number; endMs: number }>(
 		// segment instead of deleting the effect because its endpoints inverted.
 		const startMs = Math.min(...retainedSpans.map((span) => span.startMs));
 		const endMs = Math.max(...retainedSpans.map((span) => span.endMs));
-		return [{ ...region, startMs, endMs }];
+		const oldSpan = Math.max(1, region.endMs - region.startMs);
+		const newSpan = Math.max(1, endMs - startMs);
+
+		const candidate = region as unknown as { samples?: Array<{ tMs: number }> };
+		let samples = candidate.samples;
+		if (Array.isArray(samples) && samples.length > 0) {
+			samples = samples.map((sample) => {
+				const progress = Math.max(0, Math.min(1, (sample.tMs - region.startMs) / oldSpan));
+				return {
+					...sample,
+					tMs: Math.round(startMs + progress * newSpan),
+				};
+			});
+		}
+
+		return [{
+			...region,
+			startMs,
+			endMs,
+			...(samples ? { samples } : {}),
+		}];
 	});
 }
+

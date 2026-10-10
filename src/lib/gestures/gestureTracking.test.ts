@@ -10,6 +10,7 @@ import { classifyFingersForHand } from "./fingerClassifier";
 import { type FrameFingerDetection, segmentFingerDetections } from "./fingerSegmenter";
 import { evaluateGestureObject } from "./gestureMotion";
 import { OneEuroFilter2D } from "./oneEuroFilter";
+import { rippleRegions } from "../../components/video-editor/clipSequence";
 
 function createMockLandmarks(openFingers: ("index" | "middle" | "ring" | "pinky" | "thumb")[]): Landmark[] {
 	const landmarks: Landmark[] = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.8 }));
@@ -238,4 +239,56 @@ describe("Gesture Tracking Core", () => {
 		// After region
 		expect(evaluateGestureObject(region, undefined, 3500).visible).toBe(false);
 	});
+
+	it("adapts correctly when clip speed is changed (e.g. 1.5x speed) via rippleRegions", () => {
+		const originalRegion = {
+			id: "gesture-test",
+			finger: "index" as const,
+			hand: "right" as const,
+			startMs: 0,
+			endMs: 3000,
+			samples: [
+				{ tMs: 0, x: 0.2, y: 0.5, tipX: 0.2, tipY: 0.5, directionX: 0, directionY: -1, pxPerCm: 0.05, confidence: 1 },
+				{ tMs: 1500, x: 0.5, y: 0.5, tipX: 0.5, tipY: 0.5, directionX: 0, directionY: -1, pxPerCm: 0.05, confidence: 1 },
+				{ tMs: 3000, x: 0.8, y: 0.5, tipX: 0.8, tipY: 0.5, directionX: 0, directionY: -1, pxPerCm: 0.05, confidence: 1 },
+			],
+			attachment: {
+				kind: "sticker" as const,
+				content: "🔥",
+				sizePct: 15,
+				offsetCm: 1.0,
+				offsetAngleDeg: 0,
+				followRotation: true,
+				scaleWithHand: false,
+				enterAnimation: "none" as const,
+				exitAnimation: "none" as const,
+				idleAnimation: "none" as const,
+				enterDurationMs: 0,
+				exitDurationMs: 0,
+				followLag: 0,
+			},
+		};
+
+		// 1.0x clip: 0ms to 3000ms
+		const beforeClips = [{ id: "c1", startMs: 0, endMs: 3000, sourceStartMs: 0, sourceEndMs: 3000, speed: 1.0 }];
+		// 1.5x clip: duration is 2000ms (3000 / 1.5)
+		const afterClips = [{ id: "c1", startMs: 0, endMs: 2000, sourceStartMs: 0, sourceEndMs: 3000, speed: 1.5 }];
+
+		const rippled = rippleRegions([originalRegion], beforeClips, afterClips);
+		expect(rippled.length).toBe(1);
+		expect(rippled[0].startMs).toBe(0);
+		expect(rippled[0].endMs).toBe(2000);
+		expect(rippled[0].samples[1].tMs).toBe(1000); // 1500ms at 1.5x -> 1000ms
+
+		// Mid-point at 1.5x speed is at 1000ms (was 1500ms)
+		const stateAt1000 = evaluateGestureObject(rippled[0], undefined, 1000);
+		expect(stateAt1000.visible).toBe(true);
+		expect(stateAt1000.x).toBeCloseTo(0.5, 2);
+
+		// End-point at 1.5x speed is at 2000ms (was 3000ms)
+		const stateAt2000 = evaluateGestureObject(rippled[0], undefined, 2000);
+		expect(stateAt2000.visible).toBe(true);
+		expect(stateAt2000.x).toBeCloseTo(0.8, 2);
+	});
 });
+

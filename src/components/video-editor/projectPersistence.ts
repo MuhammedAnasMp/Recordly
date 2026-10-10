@@ -35,6 +35,7 @@ import {
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PADDING,
 	DEFAULT_PLAYBACK_SPEED,
+	DEFAULT_STUDIO_LIGHTING_SETTINGS,
 	DEFAULT_WEBCAM_MARGIN,
 	DEFAULT_WEBCAM_OVERLAY,
 	DEFAULT_WEBCAM_POSITION_PRESET,
@@ -1192,6 +1193,77 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			margin: isFiniteNumber(webcam.margin)
 				? clamp(webcam.margin, 0, 96)
 				: DEFAULT_WEBCAM_MARGIN,
+			studioLighting: (() => {
+				const sl = webcam.studioLighting;
+				if (!sl || typeof sl !== "object") return DEFAULT_STUDIO_LIGHTING_SETTINGS;
+				const lights = Array.isArray(sl.lights)
+					? sl.lights.map((l, idx) => ({
+							id: typeof l.id === "string" ? l.id : `light-${idx}`,
+							name: typeof l.name === "string" ? l.name : `Light ${idx + 1}`,
+							role: (["key", "fill", "rim", "accent", "custom"].includes(l.role)
+								? l.role
+								: "custom") as any,
+							enabled: typeof l.enabled === "boolean" ? l.enabled : true,
+							x: isFiniteNumber(l.x) ? clamp(l.x, 0, 1) : 0.5,
+							y: isFiniteNumber(l.y) ? clamp(l.y, 0, 1) : 0.5,
+							z: isFiniteNumber(l.z) ? clamp(l.z, 0.1, 2) : 0.6,
+							intensity: isFiniteNumber(l.intensity) ? clamp(l.intensity, 0, 2.5) : 1.0,
+							color:
+								typeof l.color === "string" && /^#[0-9A-Fa-f]{3,6}$/.test(l.color)
+									? l.color
+									: "#FFFFFF",
+							radius: isFiniteNumber(l.radius) ? clamp(l.radius, 0.2, 3) : 1.4,
+							castShadow: typeof l.castShadow === "boolean" ? l.castShadow : false,
+							specular: isFiniteNumber(l.specular) ? clamp(l.specular, 0, 1) : 0.5,
+						}))
+					: DEFAULT_STUDIO_LIGHTING_SETTINGS.lights;
+
+				return {
+					enabled: typeof sl.enabled === "boolean" ? sl.enabled : false,
+					presetId: ([
+						"three-point-classic",
+						"warm-podcaster",
+						"cyberpunk-neon",
+						"corporate-clean",
+						"golden-hour",
+						"rembrandt-dramatic",
+						"ring-light",
+						"custom",
+					].includes(sl.presetId)
+						? sl.presetId
+						: "three-point-classic") as any,
+					lights: lights.length > 0 ? lights : DEFAULT_STUDIO_LIGHTING_SETTINGS.lights,
+					ambientIntensity: isFiniteNumber(sl.ambientIntensity)
+						? clamp(sl.ambientIntensity, 0, 1)
+						: DEFAULT_STUDIO_LIGHTING_SETTINGS.ambientIntensity,
+					ambientColor:
+						typeof sl.ambientColor === "string" &&
+						/^#[0-9A-Fa-f]{3,6}$/.test(sl.ambientColor)
+							? sl.ambientColor
+							: DEFAULT_STUDIO_LIGHTING_SETTINGS.ambientColor,
+					depthResponse: isFiniteNumber(sl.depthResponse)
+						? clamp(sl.depthResponse, 0, 2.5)
+						: DEFAULT_STUDIO_LIGHTING_SETTINGS.depthResponse,
+					normalSmoothness: isFiniteNumber(sl.normalSmoothness)
+						? clamp(sl.normalSmoothness, 0, 2)
+						: DEFAULT_STUDIO_LIGHTING_SETTINGS.normalSmoothness,
+					shadowSoftness: isFiniteNumber(sl.shadowSoftness)
+						? clamp(sl.shadowSoftness, 0, 1)
+						: DEFAULT_STUDIO_LIGHTING_SETTINGS.shadowSoftness,
+					specularShininess: isFiniteNumber(sl.specularShininess)
+						? clamp(sl.specularShininess, 8, 64)
+						: DEFAULT_STUDIO_LIGHTING_SETTINGS.specularShininess,
+					exposure: isFiniteNumber(sl.exposure)
+						? clamp(sl.exposure, 0.5, 2)
+						: DEFAULT_STUDIO_LIGHTING_SETTINGS.exposure,
+					contrast: isFiniteNumber(sl.contrast)
+						? clamp(sl.contrast, 0.8, 1.5)
+						: DEFAULT_STUDIO_LIGHTING_SETTINGS.contrast,
+					smoothingAlpha: isFiniteNumber(sl.smoothingAlpha)
+						? clamp(sl.smoothingAlpha, 0.1, 0.9)
+						: DEFAULT_STUDIO_LIGHTING_SETTINGS.smoothingAlpha,
+				};
+			})(),
 		},
 		sourceAudioTrackSettingsByClip:
 			editor.sourceAudioTrackSettingsByClip &&

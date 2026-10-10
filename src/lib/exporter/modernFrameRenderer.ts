@@ -36,7 +36,7 @@ import type {
 	FingerGestureRegion,
 	GestureTrackingSettings,
 } from "@/components/video-editor/gestures/gestureTypes";
-import { renderGestureObjects } from "./gestureObjectRenderer";
+import { preloadGestureMedia, renderGestureObjects } from "./gestureObjectRenderer";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
@@ -76,6 +76,7 @@ import {
 	isWebcamCropRegionDefault,
 	scaleWebcamOverlayPixels,
 } from "@/components/video-editor/webcamOverlay";
+import { renderStudioLightingToCanvas } from "@/components/video-editor/studioLighting/studioLightingEngine";
 import { getAssetPath, getExportableVideoUrl, getRenderableAssetUrl } from "@/lib/assetPath";
 import { drawSquircleOnCanvas, drawSquircleOnGraphics } from "@/lib/geometry/squircle";
 import {
@@ -605,6 +606,9 @@ export class FrameRenderer {
 
 		this.annotationScaleFactor = this.calculateAnnotationScaleFactor();
 		this.annotationAssets = await preloadAnnotationAssets(this.config.annotationRegions ?? []);
+		if (this.config.gestureRegions && this.config.gestureRegions.length > 0) {
+			await preloadGestureMedia(this.config.gestureRegions);
+		}
 		await this.setupAnnotationLayer();
 		this.setupCaptionResources();
 
@@ -2665,6 +2669,16 @@ export class FrameRenderer {
 			this.webcamFrameCacheCanvas.width,
 			this.webcamFrameCacheCanvas.height,
 		);
+
+		if (this.config.webcam?.studioLighting?.enabled) {
+			renderStudioLightingToCanvas(
+				this.webcamFrameCacheCanvas,
+				this.webcamFrameCacheCanvas,
+				this.config.webcam.studioLighting,
+				false,
+			);
+		}
+
 		return true;
 	}
 
@@ -2693,7 +2707,9 @@ export class FrameRenderer {
 	): WebcamRenderSource | null {
 		if (canUseLiveSource && liveSource && liveSourceWidth > 0 && liveSourceHeight > 0) {
 			const usesDefaultCropRegion = isWebcamCropRegionDefault(this.config.webcam?.cropRegion);
+			const hasStudioLighting = Boolean(this.config.webcam?.studioLighting?.enabled);
 			const needsCacheBackedSource =
+				hasStudioLighting ||
 				!usesDefaultCropRegion ||
 				(typeof HTMLVideoElement !== "undefined" && liveSource instanceof HTMLVideoElement);
 

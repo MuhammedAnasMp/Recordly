@@ -26,7 +26,7 @@ import type {
 	FingerGestureRegion,
 	GestureTrackingSettings,
 } from "@/components/video-editor/gestures/gestureTypes";
-import { renderGestureObjects } from "./gestureObjectRenderer";
+import { preloadGestureMedia, renderGestureObjects } from "./gestureObjectRenderer";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
@@ -65,6 +65,7 @@ import {
 	getWebcamOverlayPosition,
 	scaleWebcamOverlayPixels,
 } from "@/components/video-editor/webcamOverlay";
+import { renderStudioLightingToCanvas } from "@/components/video-editor/studioLighting/studioLightingEngine";
 import { getAssetPath, getExportableVideoUrl, getRenderableAssetUrl } from "@/lib/assetPath";
 import { getWebcamShadowFilter } from "@/lib/exporter/shadowProfile";
 import { drawSquircleOnCanvas, drawSquircleOnGraphics } from "@/lib/geometry/squircle";
@@ -371,6 +372,14 @@ export class FrameRenderer {
 				"[FrameRenderer] Native cursor assets are unavailable; continuing export without cursor overlay.",
 				error,
 			);
+		}
+
+		if (this.config.gestureRegions && this.config.gestureRegions.length > 0) {
+			try {
+				await preloadGestureMedia(this.config.gestureRegions);
+			} catch (error) {
+				console.warn("[FrameRenderer] Failed to preload gesture media:", error);
+			}
 		}
 
 		// Create canvas for rendering
@@ -1550,7 +1559,7 @@ export class FrameRenderer {
 				this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
 				this.config.width,
 				this.config.height,
-				timestamp / 1000,
+				timeMs,
 				this.animationState.appliedScale,
 			);
 		}
@@ -1959,6 +1968,15 @@ export class FrameRenderer {
 			);
 		}
 		bubbleCtx.restore();
+
+		if (webcam.studioLighting?.enabled) {
+			renderStudioLightingToCanvas(
+				bubbleCanvas,
+				bubbleCanvas,
+				webcam.studioLighting,
+				false,
+			);
+		}
 
 		if ((webcam.shadow ?? 0) > 0) {
 			const shadowSize = Math.min(dimensions.width, dimensions.height);

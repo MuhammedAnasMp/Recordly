@@ -101,6 +101,8 @@ import {
 	getCursorStyleSizeMultiplier,
 } from "./videoPlayback/uploadedCursorAssets";
 import { WebcamCropControl } from "./WebcamCropControl";
+import { StudioLightingControls } from "./studioLighting/StudioLightingControls";
+import { DEFAULT_STUDIO_LIGHTING_SETTINGS } from "./studioLighting/studioLightingTypes";
 import {
 	getCropMatchedWebcamHeightPercent,
 	getWebcamPositionForPreset,
@@ -1519,7 +1521,12 @@ export function SettingsPanel({
 
 	const resetWebcamSection = () => {
 		if (!onWebcamChange) return;
-		onWebcamChange({ ...defaultWebcam });
+		onWebcamChange({
+			...defaultWebcam,
+			sourcePath: webcam?.sourcePath ?? null,
+			visibleRanges: webcam?.visibleRanges,
+			studioLighting: DEFAULT_STUDIO_LIGHTING_SETTINGS,
+		});
 	};
 
 	const resetCropSection = () => {
@@ -3046,7 +3053,14 @@ export function SettingsPanel({
 									formatValue={(v) => `${Math.round(v * 100)}%`}
 								/>
 							)}
-							<div className="py-2">
+							<div className="py-2 border-t border-foreground/10">
+								<StudioLightingControls
+									settings={webcam?.studioLighting ?? DEFAULT_STUDIO_LIGHTING_SETTINGS}
+									onChange={(studioLighting) => updateWebcam({ studioLighting })}
+									advanced={advanced}
+								/>
+							</div>
+							<div className="py-2 border-t border-foreground/10">
 								<div className="flex flex-col gap-4">
 									<div className="min-w-0">
 										<div className="text-xs text-muted-foreground">

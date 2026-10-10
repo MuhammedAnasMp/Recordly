@@ -70,6 +70,9 @@ export function useTimelineProjection({
 					timeline.setAudioRegions((current) =>
 						rippleRegionAnchors(current, nextRegions, sequence),
 					);
+					timeline.setGestureRegions((current) =>
+						rippleRegions(current, nextRegions, sequence),
+					);
 				}
 			}
 			initializedRef.current = true;

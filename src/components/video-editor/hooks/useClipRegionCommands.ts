@@ -22,6 +22,7 @@ type Translator = (
 interface UseClipRegionCommandsParams {
 	setAnnotationRegions: Dispatch<SetStateAction<AnnotationRegion[]>>;
 	setAudioRegions: Dispatch<SetStateAction<AudioRegion[]>>;
+	setGestureRegions?: Dispatch<SetStateAction<import("../gestures/gestureTypes").FingerGestureRegion[]>>;
 	sourceDurationMs: number;
 	clipRegions: ClipRegion[];
 	setClipRegions: Dispatch<SetStateAction<ClipRegion[]>>;
@@ -41,6 +42,7 @@ interface UseClipRegionCommandsParams {
 export function useClipRegionCommands({
 	setAnnotationRegions,
 	setAudioRegions,
+	setGestureRegions,
 	sourceDurationMs,
 	clipRegions,
 	setClipRegions,
@@ -62,8 +64,9 @@ export function useClipRegionCommands({
 			setZoomRegions((current) => rippleRegions(current, clipRegions, next));
 			setAnnotationRegions((current) => rippleRegions(current, clipRegions, next));
 			setAudioRegions((current) => rippleRegionAnchors(current, clipRegions, next));
+			setGestureRegions?.((current) => rippleRegions(current, clipRegions, next));
 		},
-		[clipRegions, setClipRegions, setZoomRegions, setAnnotationRegions, setAudioRegions],
+		[clipRegions, setClipRegions, setZoomRegions, setAnnotationRegions, setAudioRegions, setGestureRegions],
 	);
 
 	const handleSelectClip = useCallback(

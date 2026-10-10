@@ -12,6 +12,7 @@ import {
 import { evaluateGestureObject } from "@/lib/gestures/gestureMotion";
 
 const imageCache = new Map<string, HTMLImageElement>();
+const videoCache = new Map<string, HTMLVideoElement>();
 
 function isImageUrl(content: string | undefined): boolean {
 	if (!content) return false;
@@ -25,15 +26,110 @@ function isImageUrl(content: string | undefined): boolean {
 	);
 }
 
+function isVideoUrl(content: string | undefined): boolean {
+	if (!content) return false;
+	return (
+		content.startsWith("data:video/") ||
+		content.startsWith("blob:") ||
+		content.startsWith("http://") ||
+		content.startsWith("https://") ||
+		content.startsWith("file://") ||
+		/\.(mp4|webm|mov|avi|mkv|m4v)$/i.test(content)
+	);
+}
+
 function getImage(src: string): HTMLImageElement | null {
 	if (!src || !isImageUrl(src)) return null;
 	let img = imageCache.get(src);
 	if (!img) {
 		img = new Image();
+		img.crossOrigin = "anonymous";
 		img.src = src;
 		imageCache.set(src, img);
 	}
 	return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+function getVideo(src: string): HTMLVideoElement | null {
+	if (!src) return null;
+	let video = videoCache.get(src);
+	if (!video) {
+		if (typeof document === "undefined") return null;
+		video = document.createElement("video");
+		video.crossOrigin = "anonymous";
+		video.muted = true;
+		video.playsInline = true;
+		video.preload = "auto";
+		video.autoplay = false;
+		video.src = src;
+		video.currentTime = 0;
+		video.load();
+		videoCache.set(src, video);
+	}
+	return video;
+}
+
+export async function preloadGestureMedia(regions: FingerGestureRegion[]): Promise<void> {
+	if (!regions || regions.length === 0) return;
+	const promises: Promise<void>[] = [];
+
+	for (const region of regions) {
+		const content = region.attachment?.content;
+		const kind = region.attachment?.kind;
+		if (!content) continue;
+
+		if ((kind === "image" || isImageUrl(content)) && isImageUrl(content)) {
+			promises.push(
+				new Promise<void>((resolve) => {
+					let img = imageCache.get(content);
+					if (!img) {
+						img = new Image();
+						img.crossOrigin = "anonymous";
+						img.src = content;
+						imageCache.set(content, img);
+					}
+					if (img.complete) return resolve();
+					img.onload = () => resolve();
+					img.onerror = () => resolve();
+					setTimeout(resolve, 1500);
+				}),
+			);
+		} else if (kind === "video" || isVideoUrl(content)) {
+			promises.push(
+				new Promise<void>((resolve) => {
+					const video = getVideo(content);
+					if (!video) return resolve();
+					if (video.readyState >= 2) return resolve();
+					const onLoaded = () => {
+						video.removeEventListener("loadeddata", onLoaded);
+						video.removeEventListener("canplay", onLoaded);
+						video.removeEventListener("error", onLoaded);
+						resolve();
+					};
+					video.addEventListener("loadeddata", onLoaded);
+					video.addEventListener("canplay", onLoaded);
+					video.addEventListener("error", onLoaded);
+					setTimeout(resolve, 2000);
+				}),
+			);
+		}
+	}
+
+	await Promise.all(promises);
+}
+
+export function disposeGestureMediaCache(): void {
+	for (const video of videoCache.values()) {
+		try {
+			video.pause();
+			video.removeAttribute("src");
+			video.load();
+		} catch {
+			// ignore cleanup errors
+		}
+	}
+	videoCache.clear();
+	imageCache.clear();
 }
 
 export function renderGestureObjects(
@@ -154,7 +250,11 @@ export function renderGestureObjects(
 
 			if (badgeStyle !== "none") {
 				ctx.beginPath();
-				ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, radius);
+				if (typeof ctx.roundRect === "function") {
+					ctx.roundRect(-boxW / 2, -boxH / 2, boxW, boxH, radius);
+				} else {
+					ctx.rect(-boxW / 2, -boxH / 2, boxW, boxH);
+				}
 
 				if (badgeStyle === "solid" || badgeStyle === "pill") {
 					ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
@@ -310,35 +410,71 @@ export function renderGestureObjects(
 				} else {
 					drawW = sizePx * aspect;
 				}
+				ctx.save();
 				ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
 				ctx.shadowBlur = sizePx * 0.3;
 				ctx.shadowOffsetY = sizePx * 0.07;
-				ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-				ctx.shadowColor = "transparent";
-				ctx.shadowBlur = 0;
-				ctx.shadowOffsetY = 0;
-			}
-		} else if (attachment.kind === "video") {
-			const videoImg = getImage(attachment.content);
-			if (videoImg) {
-				const aspect = videoImg.naturalWidth / (videoImg.naturalHeight || 1);
-				let drawW = sizePx;
-				let drawH = sizePx;
-				if (aspect > 1) {
-					drawH = sizePx / aspect;
+				const cornerRadius = Math.max(4, sizePx * 0.12);
+				ctx.beginPath();
+				if (typeof ctx.roundRect === "function") {
+					ctx.roundRect(-drawW / 2, -drawH / 2, drawW, drawH, cornerRadius);
 				} else {
-					drawW = sizePx * aspect;
+					ctx.rect(-drawW / 2, -drawH / 2, drawW, drawH);
 				}
-				ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
-				ctx.shadowBlur = sizePx * 0.3;
-				ctx.shadowOffsetY = sizePx * 0.07;
-				ctx.drawImage(videoImg, -drawW / 2, -drawH / 2, drawW, drawH);
-				ctx.shadowColor = "transparent";
-				ctx.shadowBlur = 0;
-				ctx.shadowOffsetY = 0;
+				ctx.clip();
+				ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+				ctx.restore();
+			}
+		} else if (attachment.kind === "video" && attachment.content) {
+			const video = getVideo(attachment.content);
+			if (video) {
+				// Seek video frame relative to gesture start time
+				const elapsedSec = Math.max(0, (timeMs - (region.startMs ?? 0)) / 1000);
+				const duration = video.duration && isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+				let targetTime = elapsedSec;
+				if (duration) {
+					if (attachment.videoLoop !== false) {
+						targetTime = elapsedSec % duration;
+					} else {
+						targetTime = Math.min(elapsedSec, duration);
+					}
+				}
+				if (Math.abs(video.currentTime - targetTime) > 0.03) {
+					try {
+						video.currentTime = targetTime;
+					} catch {
+						// ignore seek issues during rapid playback
+					}
+				}
+
+				if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+					const aspect = video.videoWidth / video.videoHeight;
+					let drawW = sizePx;
+					let drawH = sizePx;
+					if (aspect > 1) {
+						drawH = sizePx / aspect;
+					} else {
+						drawW = sizePx * aspect;
+					}
+					ctx.save();
+					ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+					ctx.shadowBlur = sizePx * 0.3;
+					ctx.shadowOffsetY = sizePx * 0.07;
+					const cornerRadius = Math.max(4, sizePx * 0.12);
+					ctx.beginPath();
+					if (typeof ctx.roundRect === "function") {
+						ctx.roundRect(-drawW / 2, -drawH / 2, drawW, drawH, cornerRadius);
+					} else {
+						ctx.rect(-drawW / 2, -drawH / 2, drawW, drawH);
+					}
+					ctx.clip();
+					ctx.drawImage(video, -drawW / 2, -drawH / 2, drawW, drawH);
+					ctx.restore();
+				}
 			}
 		}
 
 		ctx.restore();
 	}
 }
+

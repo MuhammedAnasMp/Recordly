@@ -135,6 +135,30 @@ export type WebcamPositionPreset =
 	| "bottom-center"
 	| "custom";
 
+import {
+	DEFAULT_STUDIO_LIGHTING_SETTINGS,
+	DEFAULT_STUDIO_LIGHTS,
+	STUDIO_LIGHT_COLOR_SWATCHES,
+	type StudioLight,
+	type StudioLightRole,
+	type StudioLightingPreset,
+	type StudioLightingPresetId,
+	type StudioLightingSettings,
+} from "./studioLighting/studioLightingTypes";
+
+export type {
+	StudioLight,
+	StudioLightRole,
+	StudioLightingPreset,
+	StudioLightingPresetId,
+	StudioLightingSettings,
+};
+export {
+	DEFAULT_STUDIO_LIGHTING_SETTINGS,
+	DEFAULT_STUDIO_LIGHTS,
+	STUDIO_LIGHT_COLOR_SWATCHES,
+};
+
 export interface WebcamOverlaySettings {
 	/** Source-time intervals containing webcam footage in an imported sequence. */
 	visibleRanges?: { startMs: number; endMs: number }[];
@@ -156,6 +180,7 @@ export interface WebcamOverlaySettings {
 	cornerRadius?: number;
 	shadow: number;
 	margin: number;
+	studioLighting?: StudioLightingSettings;
 }
 
 export const DEFAULT_CURSOR_SIZE = 3.0;
@@ -220,6 +245,7 @@ export const DEFAULT_WEBCAM_OVERLAY: WebcamOverlaySettings = {
 	roundness: DEFAULT_WEBCAM_ROUNDNESS,
 	shadow: DEFAULT_WEBCAM_SHADOW,
 	margin: DEFAULT_WEBCAM_MARGIN,
+	studioLighting: DEFAULT_STUDIO_LIGHTING_SETTINGS,
 };
 
 export interface TrimRegion {

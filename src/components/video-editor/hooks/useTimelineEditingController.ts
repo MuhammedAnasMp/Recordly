@@ -177,6 +177,7 @@ export function useTimelineEditingController(input: Input) {
 	const clipCommands = useClipRegionCommands({
 		setAnnotationRegions: timeline.setAnnotationRegions,
 		setAudioRegions: timeline.setAudioRegions,
+		setGestureRegions: timeline.setGestureRegions,
 		sourceDurationMs: input.duration * 1000,
 		clipRegions: timeline.clipRegions,
 		setClipRegions: timeline.setClipRegions,

@@ -30,6 +30,9 @@ import {
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
 import { type AspectRatio, formatAspectRatioForCSS } from "@/utils/aspectRatioUtils";
+import { cn } from "@/lib/utils";
+import { StudioLightGizmoOverlay } from "./studioLighting/StudioLightGizmoOverlay";
+import { renderStudioLightingToCanvas } from "./studioLighting/studioLightingEngine";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import { GestureObjectOverlay } from "./gestures/GestureObjectOverlay";
 import type { FingerGestureRegion, GestureTrackingSettings } from "./gestures/gestureTypes";
@@ -254,6 +257,7 @@ interface VideoPlaybackProps {
 	cropRegion?: import("./types").CropRegion;
 	webcam?: WebcamOverlaySettings;
 	webcamVideoPath?: string | null;
+	onWebcamChange?: (webcam: WebcamOverlaySettings) => void;
 	gestureRegions?: FingerGestureRegion[];
 	gestureSettings?: GestureTrackingSettings;
 	aspectRatio: AspectRatio;
@@ -342,6 +346,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cropRegion,
 			webcam,
 			webcamVideoPath,
+			onWebcamChange,
 			gestureRegions = [],
 			gestureSettings,
 			aspectRatio,
@@ -421,6 +426,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const overlayRef = useRef<HTMLDivElement | null>(null);
 		const focusIndicatorRef = useRef<HTMLDivElement | null>(null);
 		const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
+		const webcamCanvasRef = useRef<HTMLCanvasElement | null>(null);
 		const webcamBubbleRef = useRef<HTMLDivElement | null>(null);
 		const webcamBubbleInnerRef = useRef<HTMLDivElement | null>(null);
 		const [webcamVideoDimensions, setWebcamVideoDimensions] = useState<{
@@ -927,6 +933,73 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				webcamWidth,
 			],
 		);
+
+		const studioLightingSettings = webcam?.studioLighting;
+		const renderStudioLightingFrame = useCallback(() => {
+			const video = webcamVideoRef.current;
+			const canvas = webcamCanvasRef.current;
+			if (!video || !canvas || !studioLightingSettings?.enabled || video.readyState < 2) return;
+			renderStudioLightingToCanvas(video, canvas, studioLightingSettings, false);
+		}, [studioLightingSettings]);
+
+		useEffect(() => {
+			if (!studioLightingSettings?.enabled) return;
+
+			let animationFrameId: number | null = null;
+			let videoFrameCallbackId: number | null = null;
+			let isCancelled = false;
+
+			const video = webcamVideoRef.current;
+			if (!video) return;
+
+			const onFrame = () => {
+				if (isCancelled) return;
+				renderStudioLightingFrame();
+
+				const rVFC = (
+					video as HTMLVideoElement & {
+						requestVideoFrameCallback?: (callback: () => void) => number;
+					}
+				).requestVideoFrameCallback;
+
+				if (typeof rVFC === "function") {
+					videoFrameCallbackId = rVFC.call(video, onFrame);
+				} else if (isPlaying) {
+					animationFrameId = requestAnimationFrame(onFrame);
+				}
+			};
+
+			// Initial render for current frame
+			renderStudioLightingFrame();
+
+			const rVFC = (
+				video as HTMLVideoElement & {
+					requestVideoFrameCallback?: (callback: () => void) => number;
+				}
+			).requestVideoFrameCallback;
+
+			if (typeof rVFC === "function") {
+				videoFrameCallbackId = rVFC.call(video, onFrame);
+			} else if (isPlaying) {
+				animationFrameId = requestAnimationFrame(onFrame);
+			}
+
+			return () => {
+				isCancelled = true;
+				const cVFC = (
+					video as HTMLVideoElement & {
+						cancelVideoFrameCallback?: (handle: number) => void;
+					}
+				).cancelVideoFrameCallback;
+
+				if (videoFrameCallbackId !== null && typeof cVFC === "function") {
+					cVFC.call(video, videoFrameCallbackId);
+				}
+				if (animationFrameId !== null) {
+					cancelAnimationFrame(animationFrameId);
+				}
+			};
+		}, [studioLightingSettings?.enabled, isPlaying, renderStudioLightingFrame, timelineTime]);
 
 		const clampFocusToStage = useCallback((focus: ZoomFocus, depth: ZoomDepth) => {
 			return clampFocusToStageUtil(focus, depth, stageSizeRef.current);
@@ -2480,18 +2553,49 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 											<video
 												ref={webcamVideoRef}
 												src={webcamVideoPath}
-												className="pointer-events-none absolute inset-0 block h-full w-full object-fill"
+												className={cn(
+													"pointer-events-none absolute inset-0 block h-full w-full object-fill",
+													webcam.studioLighting?.enabled && "opacity-0",
+												)}
 												muted
 												playsInline
 												preload="auto"
 												aria-hidden="true"
-												onLoadedMetadata={handleWebcamMediaReady}
-												onLoadedData={handleWebcamMediaReady}
-												onCanPlay={handleWebcamMediaReady}
-												onSeeked={handleWebcamMediaReady}
+												onLoadedMetadata={(e) => {
+													handleWebcamMediaReady(e);
+													renderStudioLightingFrame();
+												}}
+												onLoadedData={(e) => {
+													handleWebcamMediaReady(e);
+													renderStudioLightingFrame();
+												}}
+												onCanPlay={(e) => {
+													handleWebcamMediaReady(e);
+													renderStudioLightingFrame();
+												}}
+												onSeeked={(e) => {
+													handleWebcamMediaReady(e);
+													renderStudioLightingFrame();
+												}}
+												onTimeUpdate={renderStudioLightingFrame}
 											/>
+											{webcam.studioLighting?.enabled && (
+												<canvas
+													ref={webcamCanvasRef}
+													className="pointer-events-none absolute inset-0 block h-full w-full object-fill"
+												/>
+											)}
 										</div>
 									</div>
+									{webcam.enabled && webcam.studioLighting?.enabled && (
+										<StudioLightGizmoOverlay
+											settings={webcam.studioLighting}
+											onUpdateSettings={(studioLighting) =>
+												onWebcamChange?.({ ...webcam, studioLighting })
+											}
+											visible={webcam.enabled && webcam.studioLighting.enabled}
+										/>
+									)}
 								</div>
 							</div>
 						) : null}

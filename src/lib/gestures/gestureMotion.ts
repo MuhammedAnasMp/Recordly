@@ -84,10 +84,19 @@ export function evaluateGestureObject(
 	}
 
 	const samples = region.samples;
+	const regionDuration = Math.max(1, region.endMs - region.startMs);
+	const progress = Math.max(0, Math.min(1, (tMs - region.startMs) / regionDuration));
+
+	const firstSampleTime = samples[0].tMs;
+	const lastSampleTime = samples[samples.length - 1].tMs;
+	const sampleSpan = Math.max(0, lastSampleTime - firstSampleTime);
+	const effectiveSampleTime =
+		sampleSpan > 0 ? firstSampleTime + progress * sampleSpan : firstSampleTime;
+
 	let sampleIndex = 0;
 	while (
 		sampleIndex < samples.length - 1 &&
-		samples[sampleIndex + 1].tMs <= tMs
+		samples[sampleIndex + 1].tMs <= effectiveSampleTime
 	) {
 		sampleIndex++;
 	}
@@ -97,7 +106,7 @@ export function evaluateGestureObject(
 
 	let interp = 0;
 	if (s1.tMs > s0.tMs) {
-		interp = Math.max(0, Math.min(1, (tMs - s0.tMs) / (s1.tMs - s0.tMs)));
+		interp = Math.max(0, Math.min(1, (effectiveSampleTime - s0.tMs) / (s1.tMs - s0.tMs)));
 	}
 
 	// Interpolate tip & direction
