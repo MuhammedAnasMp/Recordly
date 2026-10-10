@@ -15,6 +15,10 @@ import type {
 	ZoomRegion,
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
+import type {
+	FingerGestureRegion,
+	GestureTrackingSettings,
+} from "@/components/video-editor/gestures/gestureTypes";
 import { FrameRenderer } from "./frameRenderer";
 import { StreamingVideoDecoder } from "./streamingDecoder";
 import type {
@@ -62,6 +66,8 @@ interface GifExporterConfig {
 	webcam?: WebcamOverlaySettings;
 	webcamUrl?: string | null;
 	annotationRegions?: AnnotationRegion[];
+	gestureRegions?: FingerGestureRegion[];
+	gestureSettings?: GestureTrackingSettings;
 	autoCaptions?: CaptionCue[];
 	autoCaptionSettings?: AutoCaptionSettings;
 	cursorTelemetry?: CursorTelemetryPoint[];
@@ -163,6 +169,8 @@ export function buildGifFrameRendererConfig(
 		videoWidth: videoInfo.width,
 		videoHeight: videoInfo.height,
 		annotationRegions: config.annotationRegions,
+		gestureRegions: config.gestureRegions,
+		gestureSettings: config.gestureSettings,
 		autoCaptions: config.autoCaptions,
 		autoCaptionSettings: config.autoCaptionSettings,
 		speedRegions: config.speedRegions,

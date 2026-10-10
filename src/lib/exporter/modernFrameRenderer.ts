@@ -28,9 +28,15 @@ import type {
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
 import {
+	DEFAULT_WEBCAM_OVERLAY,
 	DEFAULT_WEBCAM_ROUNDNESS,
 	getDefaultCaptionFontFamily,
 } from "@/components/video-editor/types";
+import type {
+	FingerGestureRegion,
+	GestureTrackingSettings,
+} from "@/components/video-editor/gestures/gestureTypes";
+import { renderGestureObjects } from "./gestureObjectRenderer";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
@@ -126,6 +132,8 @@ interface FrameRenderConfig {
 	videoWidth: number;
 	videoHeight: number;
 	annotationRegions?: AnnotationRegion[];
+	gestureRegions?: FingerGestureRegion[];
+	gestureSettings?: GestureTrackingSettings;
 	autoCaptions?: CaptionCue[];
 	autoCaptionSettings?: AutoCaptionSettings;
 	speedRegions?: SpeedRegion[];
@@ -417,6 +425,11 @@ export class FrameRenderer {
 	private captionSprite: Sprite | null = null;
 	private captionTextureSource: MutableVideoTextureSource | null = null;
 	private captionRenderKey: string | null = null;
+	private gestureContainer: Container | null = null;
+	private gestureCanvas: HTMLCanvasElement | null = null;
+	private gestureCtx: CanvasRenderingContext2D | null = null;
+	private gestureSprite: Sprite | null = null;
+	private gestureTextureSource: MutableVideoTextureSource | null = null;
 	private exportCompositeCanvas: ExportCompositeCanvasState | null = null;
 	private outputCanvasOverride: HTMLCanvasElement | null = null;
 	private config: FrameRenderConfig;
@@ -512,6 +525,7 @@ export class FrameRenderer {
 		this.overlayContainer = new Container();
 		this.annotationContainer = new Container();
 		this.captionContainer = new Container();
+		this.gestureContainer = new Container();
 		this.webcamRootContainer = new Container();
 		this.webcamContainer = new Container();
 
@@ -542,6 +556,7 @@ export class FrameRenderer {
 		this.webcamRootContainer.visible = false;
 
 		this.overlayContainer.addChild(this.webcamRootContainer);
+		this.overlayContainer.addChild(this.gestureContainer);
 		this.cameraContainer.addChild(this.annotationContainer);
 		this.overlayContainer.addChild(this.captionContainer);
 
@@ -1495,7 +1510,28 @@ export class FrameRenderer {
 		context.restore();
 	}
 
-	private async composeBlurAnnotationFrame(timeMs: number): Promise<void> {
+	private drawGestureOverlay(context: CanvasRenderingContext2D, timeMs: number): void {
+		if (
+			!this.config.gestureSettings?.enabled ||
+			!this.config.gestureRegions ||
+			this.config.gestureRegions.length === 0
+		) {
+			return;
+		}
+
+		renderGestureObjects(
+			context,
+			this.config.gestureRegions,
+			this.config.gestureSettings,
+			this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
+			this.config.width,
+			this.config.height,
+			timeMs,
+			this.animationState.appliedScale,
+		);
+	}
+
+	private async composeBlurAnnotationFrame(timeMs: number, sourceTimeMs = timeMs): Promise<void> {
 		if (!this.app) {
 			this.outputCanvasOverride = null;
 			return;
@@ -1527,6 +1563,7 @@ export class FrameRenderer {
 			this.layoutCache?.maskRect,
 		);
 
+		this.drawGestureOverlay(context, sourceTimeMs);
 		this.drawCaptionOverlay(context);
 		this.outputCanvasOverride = canvas;
 	}
@@ -1928,6 +1965,77 @@ export class FrameRenderer {
 		this.captionSprite.position.set(state.centerX, state.centerY + state.layout.translateY);
 		this.captionSprite.scale.set(state.layout.scale);
 		this.captionSprite.alpha = state.layout.opacity * (settings?.textOpacity ?? 1);
+	}
+
+	private updateGestureOverlay(timeMs: number): void {
+		if (
+			!this.config.gestureSettings?.enabled ||
+			!this.config.gestureRegions ||
+			this.config.gestureRegions.length === 0
+		) {
+			if (this.gestureSprite) {
+				this.gestureSprite.visible = false;
+			}
+			return;
+		}
+
+		this.ensureGestureCanvas();
+		if (!this.gestureCtx || !this.gestureCanvas || !this.gestureSprite) {
+			return;
+		}
+
+		this.gestureCtx.clearRect(0, 0, this.gestureCanvas.width, this.gestureCanvas.height);
+		renderGestureObjects(
+			this.gestureCtx,
+			this.config.gestureRegions,
+			this.config.gestureSettings,
+			this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
+			this.config.width,
+			this.config.height,
+			timeMs,
+			this.animationState.appliedScale,
+		);
+
+		this.gestureTextureSource?.update();
+		this.gestureContainer!.visible = true;
+		this.gestureSprite.visible = true;
+	}
+
+	private ensureGestureCanvas(): void {
+		const targetWidth = Math.max(1, Math.ceil(this.config.width));
+		const targetHeight = Math.max(1, Math.ceil(this.config.height));
+
+		if (
+			this.gestureCanvas &&
+			this.gestureCanvas.width === targetWidth &&
+			this.gestureCanvas.height === targetHeight &&
+			this.gestureCtx &&
+			this.gestureSprite
+		) {
+			return;
+		}
+
+		this.gestureCanvas = document.createElement("canvas");
+		this.gestureCanvas.width = targetWidth;
+		this.gestureCanvas.height = targetHeight;
+		this.gestureCtx = configureHighQuality2DContext(this.gestureCanvas.getContext("2d"));
+
+		if (!this.gestureCtx) {
+			throw new Error("Failed to create gesture export canvas");
+		}
+
+		const nextTexture = Texture.from(this.gestureCanvas);
+		if (this.gestureSprite) {
+			const previousTexture = this.gestureSprite.texture;
+			this.gestureSprite.texture = nextTexture;
+			this.gestureTextureSource = nextTexture.source as unknown as MutableVideoTextureSource;
+			previousTexture.destroy(true);
+		} else {
+			this.gestureSprite = new Sprite(nextTexture);
+			this.gestureSprite.position.set(0, 0);
+			this.gestureContainer?.addChild(this.gestureSprite);
+			this.gestureTextureSource = nextTexture.source as unknown as MutableVideoTextureSource;
+		}
 	}
 
 	private async syncBackgroundFrame(timeSeconds: number): Promise<void> {
@@ -3111,19 +3219,24 @@ export class FrameRenderer {
 		this.updateAnnotationLayer(timeMs);
 		this.updateCaptionLayer(timestamp / 1000);
 		this.updateWebcamOverlay();
-		await this.renderOutput(timeMs);
+		this.updateGestureOverlay(timestamp / 1000);
+		await this.renderOutput(timeMs, timestamp / 1000);
 	}
 
-	private async renderOutput(timeMs: number): Promise<void> {
+	private async renderOutput(timeMs: number, sourceTimeMs = timeMs): Promise<void> {
 		if (this.hasActiveBlurAnnotations(timeMs)) {
 			const annotationContainerVisible = this.annotationContainer?.visible ?? true;
 			const captionContainerVisible = this.captionContainer?.visible ?? true;
+			const gestureContainerVisible = this.gestureContainer?.visible ?? true;
 
 			if (this.annotationContainer) {
 				this.annotationContainer.visible = false;
 			}
 			if (this.captionContainer) {
 				this.captionContainer.visible = false;
+			}
+			if (this.gestureContainer) {
+				this.gestureContainer.visible = false;
 			}
 
 			this.app!.render();
@@ -3134,8 +3247,11 @@ export class FrameRenderer {
 			if (this.captionContainer) {
 				this.captionContainer.visible = captionContainerVisible;
 			}
+			if (this.gestureContainer) {
+				this.gestureContainer.visible = gestureContainerVisible;
+			}
 
-			await this.composeBlurAnnotationFrame(timeMs);
+			await this.composeBlurAnnotationFrame(timeMs, sourceTimeMs);
 			return;
 		}
 
@@ -3376,6 +3492,7 @@ export class FrameRenderer {
 			this.backgroundSprite,
 			this.webcamSprite,
 			this.captionSprite,
+			this.gestureSprite,
 			...this.videoShadowLayers.map((layer) => layer.sprite),
 			...this.webcamShadowLayers.map((layer) => layer.sprite),
 		]) {
@@ -3484,6 +3601,13 @@ export class FrameRenderer {
 		this.captionSprite = null;
 		this.captionTextureSource = null;
 		this.captionRenderKey = null;
+
+		this.gestureCanvas = null;
+		this.gestureCtx = null;
+		this.gestureSprite = null;
+		this.gestureTextureSource = null;
+		this.gestureContainer = null;
+
 		this.exportCompositeCanvas = null;
 		this.outputCanvasOverride = null;
 

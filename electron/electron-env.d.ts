@@ -683,6 +683,13 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
+		openImageFilePicker: () => Promise<{
+			success: boolean;
+			path?: string;
+			message?: string;
+			canceled?: boolean;
+			error?: string;
+		}>;
 		openAudioFilePicker: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>;
 		openWhisperExecutablePicker: () => Promise<{
 			success: boolean;

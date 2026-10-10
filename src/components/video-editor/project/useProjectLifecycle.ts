@@ -26,6 +26,7 @@ import type { useAppearanceState } from "../state/useAppearanceState";
 import type { useProjectState } from "../state/useProjectState";
 import type { useTimelineState } from "../state/useTimelineState";
 import { DEFAULT_WEBCAM_TIME_OFFSET_MS } from "../types";
+import { DEFAULT_GESTURE_TRACKING_SETTINGS } from "../gestures/gestureTypes";
 import type { VideoPlaybackRef } from "../VideoPlayback";
 import { cloneStructured } from "../videoEditorUtils";
 
@@ -178,6 +179,8 @@ export function useProjectLifecycle(input: Input) {
 		timeline.setSpeedRegions(editor.speedRegions);
 		timeline.setAnnotationRegions(editor.annotationRegions);
 		timeline.setAudioRegions(editor.audioRegions);
+		timeline.setGestureRegions(editor.gestureRegions ?? []);
+		timeline.setGestureSettings(editor.gestureSettings ?? DEFAULT_GESTURE_TRACKING_SETTINGS);
 		timeline.setSourceAudioTrackSettingsByClip(editor.sourceAudioTrackSettingsByClip ?? {});
 		timeline.setDefaultSourceAudioTrackSettings(editor.defaultSourceAudioTrackSettings ?? {});
 		timeline.setAutoCaptions(editor.autoCaptions);
@@ -187,6 +190,7 @@ export function useProjectLifecycle(input: Input) {
 		timeline.setSelectedClipId(null);
 		timeline.setSelectedAnnotationId(null);
 		timeline.setSelectedAudioId(null);
+		timeline.setSelectedGestureId(null);
 		refs.nextZoomIdRef.current = deriveNextId(
 			"zoom",
 			editor.zoomRegions.map(({ id }) => id),
@@ -330,6 +334,8 @@ export function useProjectLifecycle(input: Input) {
 		timeline.setSpeedRegions([]);
 		timeline.setAnnotationRegions([]);
 		timeline.setAudioRegions([]);
+		timeline.setGestureRegions([]);
+		timeline.setGestureSettings(DEFAULT_GESTURE_TRACKING_SETTINGS);
 		timeline.setCursorTelemetry([]);
 		timeline.setCursorTelemetrySourcePath(null);
 		timeline.setSourceAudioTrackSettingsByClip({});
@@ -341,6 +347,7 @@ export function useProjectLifecycle(input: Input) {
 		timeline.setSelectedClipId(null);
 		timeline.setSelectedAnnotationId(null);
 		timeline.setSelectedAudioId(null);
+		timeline.setSelectedGestureId(null);
 		refs.nextZoomIdRef.current = 1;
 		refs.nextClipIdRef.current = 1;
 		refs.nextAudioIdRef.current = 1;

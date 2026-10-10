@@ -17,6 +17,10 @@ import type {
 	ZoomRegion,
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
+import type {
+	FingerGestureRegion,
+	GestureTrackingSettings,
+} from "@/components/video-editor/gestures/gestureTypes";
 import { DEFAULT_WEBCAM_ROUNDNESS } from "@/components/video-editor/types";
 import { createCursorFollowCameraState } from "@/components/video-editor/videoPlayback/cursorFollowCamera";
 import { buildNativeCursorAtlas } from "@/components/video-editor/videoPlayback/cursorRenderer";
@@ -120,6 +124,8 @@ interface VideoExporterConfig extends ExportConfig {
 	webcam?: WebcamOverlaySettings;
 	webcamUrl?: string | null;
 	annotationRegions?: AnnotationRegion[];
+	gestureRegions?: FingerGestureRegion[];
+	gestureSettings?: GestureTrackingSettings;
 	autoCaptions?: CaptionCue[];
 	autoCaptionSettings?: AutoCaptionSettings;
 	cursorTelemetry?: CursorTelemetryPoint[];
@@ -629,6 +635,8 @@ export class ModernVideoExporter {
 					videoWidth: videoInfo.width,
 					videoHeight: videoInfo.height,
 					annotationRegions: this.config.annotationRegions,
+					gestureRegions: this.config.gestureRegions,
+					gestureSettings: this.config.gestureSettings,
 					autoCaptions: this.config.autoCaptions,
 					autoCaptionSettings: this.config.autoCaptionSettings,
 					speedRegions: this.config.speedRegions,

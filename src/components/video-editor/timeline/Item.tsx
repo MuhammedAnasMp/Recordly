@@ -1,5 +1,6 @@
 import {
 	Gauge,
+	HandPointing,
 	MagnifyingGlassPlus as ZoomIn,
 	ChatCircle as MessageSquare,
 	MusicNotes as Music,
@@ -48,7 +49,7 @@ interface ItemProps {
 	waveformGain?: number;
 	waveformNormalize?: boolean;
 	muted?: boolean;
-	variant?: "zoom" | "trim" | "clip" | "annotation" | "speed" | "audio" | "caption";
+	variant?: "zoom" | "trim" | "clip" | "annotation" | "speed" | "audio" | "caption" | "gesture";
 	isLoading?: boolean;
 	loadingLabel?: string;
 }
@@ -232,6 +233,7 @@ export default function Item({
 	const isSpeed = variant === "speed";
 	const isAudio = variant === "audio";
 	const isCaption = variant === "caption";
+	const isGesture = variant === "gesture";
 	const showAudioWaveform = isAudio && Boolean(waveformPeaks);
 	const clipSpeedLabel = isClip ? formatClipSpeedLabel(speedValue ?? 1) : null;
 
@@ -247,7 +249,9 @@ export default function Item({
 						? glassStyles.glassDarkGreen
 						: isCaption
 							? glassStyles.glassCaption
-							: glassStyles.glassYellow;
+							: isGesture
+								? glassStyles.glassPurple
+								: glassStyles.glassYellow;
 
 	const MIN_ITEM_PX = 6;
 	const handleSelect = () => {
@@ -400,6 +404,8 @@ export default function Item({
 										<Gauge className="size-3 shrink-0" />
 									) : isAudio ? (
 										<Music className="size-3 shrink-0" />
+									) : isGesture ? (
+										<HandPointing className="size-3 shrink-0" />
 									) : (
 										<MessageSquare className="size-3 shrink-0" />
 									)}

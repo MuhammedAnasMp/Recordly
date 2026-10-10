@@ -2,6 +2,7 @@ import type { ComponentProps, Dispatch, SetStateAction } from "react";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { useClipAudioReset } from "../audio/useClipAudioReset";
 import type { useAutoCaptionController } from "../captions/useAutoCaptionController";
+import type { useGestureController } from "../gestures/useGestureController";
 import type { useAnnotationRegionCommands } from "../hooks/useAnnotationRegionCommands";
 import type { useAudioRegionCommands } from "../hooks/useAudioRegionCommands";
 import type { useCaptionCommands } from "../hooks/useCaptionCommands";
@@ -22,6 +23,7 @@ type Input = {
 	captionCommands: ReturnType<typeof useCaptionCommands>;
 	annotationCommands: ReturnType<typeof useAnnotationRegionCommands>;
 	autoCaptionController: ReturnType<typeof useAutoCaptionController>;
+	gestureController: ReturnType<typeof useGestureController>;
 	effectiveShowCursor: boolean;
 	handleShowCursorChange: (show: boolean) => void;
 	currentTime: number;
@@ -50,6 +52,7 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		captionCommands,
 		annotationCommands,
 		autoCaptionController,
+		gestureController,
 		effectiveShowCursor,
 		handleShowCursorChange,
 		currentTime,
@@ -218,5 +221,19 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		onAnnotationBlurIntensityChange: annotationCommands.handleAnnotationBlurIntensityChange,
 		onAnnotationBlurColorChange: annotationCommands.handleAnnotationBlurColorChange,
 		onAnnotationDelete: annotationCommands.handleAnnotationDelete,
+		gestureRegions: timeline.gestureRegions,
+		gestureSettings: timeline.gestureSettings,
+		onGestureSettingsChange: timeline.setGestureSettings,
+		onUpdateDefaultAttachment: gestureController.handleUpdateDefaultAttachment,
+		onUpdateGestureRegions: gestureController.handleUpdateAllGestureRegions,
+		selectedGestureId: timeline.selectedGestureId,
+		onAnalyzeWebcamGestures: gestureController.handleAnalyzeWebcam,
+		isAnalyzingGestures: gestureController.isAnalyzing,
+		gestureAnalysisProgress: gestureController.analysisProgress,
+		webcamSourcePath: appearance.webcam?.sourcePath ?? null,
+		onSelectGestureRegion: gestureController.handleSelectGesture,
+		onUpdateGestureRegion: gestureController.handleUpdateGestureRegion,
+		onDeleteGestureRegion: gestureController.handleDeleteGestureRegion,
+		onBackToGestures: gestureController.handleBackToGestures,
 	};
 }

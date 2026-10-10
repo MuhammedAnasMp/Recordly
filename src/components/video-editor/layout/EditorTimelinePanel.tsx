@@ -143,6 +143,19 @@ export function EditorTimelinePanel(props: Props) {
 				onAnnotationDelete={annotationCommands.handleAnnotationDelete}
 				selectedAnnotationId={timeline.selectedAnnotationId}
 				onSelectAnnotation={handleSelectAnnotation}
+				gestureRegions={timeline.gestureRegions}
+				gestureTrackingEnabled={timeline.gestureSettings.enabled}
+				selectedGestureId={timeline.selectedGestureId}
+				onSelectGesture={timeline.setSelectedGestureId}
+				onGestureSpanChange={(id, span) => {
+					timeline.updateGestureRegion(id, {
+						startMs: span.start,
+						endMs: span.end,
+					});
+				}}
+				onGestureDelete={(id) => {
+					timeline.removeGestureRegion(id);
+				}}
 				showSourceAudioTrack={timeline.clipRegions.some((clip) => clip.showSourceAudio)}
 				sourceAudioResourceVersion={timeline.sourceAudioFallbackRefreshKey}
 				sourceAudioTrackSettings={audio.activeSourceAudioTrackSettings}

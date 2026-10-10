@@ -31,6 +31,8 @@ import {
 } from "@/lib/wallpapers";
 import { type AspectRatio, formatAspectRatioForCSS } from "@/utils/aspectRatioUtils";
 import { AnnotationOverlay } from "./AnnotationOverlay";
+import { GestureObjectOverlay } from "./gestures/GestureObjectOverlay";
+import type { FingerGestureRegion, GestureTrackingSettings } from "./gestures/gestureTypes";
 import { type CaptionEditTarget, normalizeCaptionEditText } from "./captionEditing";
 import { buildActiveCaptionLayout } from "./captionLayout";
 import {
@@ -252,6 +254,8 @@ interface VideoPlaybackProps {
 	cropRegion?: import("./types").CropRegion;
 	webcam?: WebcamOverlaySettings;
 	webcamVideoPath?: string | null;
+	gestureRegions?: FingerGestureRegion[];
+	gestureSettings?: GestureTrackingSettings;
 	aspectRatio: AspectRatio;
 	annotationRegions?: AnnotationRegion[];
 	autoCaptions?: CaptionCue[];
@@ -338,6 +342,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cropRegion,
 			webcam,
 			webcamVideoPath,
+			gestureRegions = [],
+			gestureSettings,
 			aspectRatio,
 			annotationRegions = [],
 			autoCaptions = [],
@@ -2915,6 +2921,18 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								})()}
 							</div>
 						</div>
+						{gestureSettings?.enabled && webcam && (
+							<GestureObjectOverlay
+								enabled={gestureSettings.enabled}
+								gestureRegions={gestureRegions}
+								currentTimeMs={Math.round(currentTime * 1000)}
+								webcamSettings={webcam}
+								containerWidth={overlayRef.current?.clientWidth || 800}
+								containerHeight={overlayRef.current?.clientHeight || 600}
+								zoomScale={annotationSceneTransform.scale}
+								settings={gestureSettings}
+							/>
+						)}
 					</div>
 				)}
 				{/* Keep the source video off-screen instead of display:none so the

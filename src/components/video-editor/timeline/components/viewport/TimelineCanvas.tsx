@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import {
 	CAPTION_ROW_ID,
 	CLIP_ROW_ID,
+	GESTURE_ROW_ID,
 	SOURCE_AUDIO_ROW_ID,
 	ZOOM_ROW_ID,
 } from "../../core/constants";
@@ -53,6 +54,7 @@ import PlaybackCursor from "../playhead/PlaybackCursor";
 const HINT_CLIP = "Press C to split clip";
 const HINT_ANNOTATION = "Press A to add annotation";
 const HINT_AUDIO = "Click music icon to add audio";
+const HINT_GESTURE = "☝️ Finger Gestures";
 
 interface TimelineCanvasProps {
 	videoPath?: string | null;
@@ -66,6 +68,9 @@ interface TimelineCanvasProps {
 	onSelectAnnotation?: (id: string | null) => void;
 	onSelectAudio?: (id: string | null) => void;
 	onSelectCaption?: (id: string | null) => void;
+	gestureTrackingEnabled?: boolean;
+	selectedGestureId?: string | null;
+	onSelectGesture?: (id: string | null) => void;
 	onAddZoomAtMs?: (startMs: number) => void;
 	onAddCaptionAtMs?: (startMs: number) => void;
 	canPlaceCaptionAtMs?: (startMs: number) => boolean;
@@ -416,6 +421,9 @@ interface TimelineCanvasRowsProps {
 	onSelectAnnotation?: (id: string | null) => void;
 	onSelectAudio?: (id: string | null) => void;
 	onSelectCaption?: (id: string | null) => void;
+	gestureTrackingEnabled?: boolean;
+	selectedGestureId?: string | null;
+	onSelectGesture?: (id: string | null) => void;
 	sourceAudioTracks?: SourceAudioTrackWithPeaks[];
 	getSourceAudioTrackSettingsForClip?: (clipId: string | null) => SourceAudioTrackSettings;
 	showSourceAudioTrack?: boolean;
@@ -493,6 +501,9 @@ const TimelineCanvasRows = memo(function TimelineCanvasRows({
 	onSelectAnnotation,
 	onSelectAudio,
 	onSelectCaption,
+	gestureTrackingEnabled = false,
+	selectedGestureId,
+	onSelectGesture,
 	sourceAudioTracks = [],
 	getSourceAudioTrackSettingsForClip,
 	showSourceAudioTrack = false,
@@ -523,10 +534,11 @@ const TimelineCanvasRows = memo(function TimelineCanvasRows({
 		range: { start: rangeStart },
 	} = useTimelineContext();
 	const hiddenIds = useMemo(() => new Set(liveHiddenItemIds ?? []), [liveHiddenItemIds]);
-	const { clipItems, zoomItems, captionItems, annotationRows, audioRows } = useMemo(() => {
+	const { clipItems, zoomItems, captionItems, gestureItems, annotationRows, audioRows } = useMemo(() => {
 		const nextClipItems: TimelineRenderItem[] = [];
 		const nextZoomItems: TimelineRenderItem[] = [];
 		const nextCaptionItems: TimelineRenderItem[] = [];
+		const nextGestureItems: TimelineRenderItem[] = [];
 		const annotationBuckets = new Map<number, TimelineRenderItem[]>();
 		const audioBuckets = new Map<number, TimelineRenderItem[]>();
 
@@ -541,6 +553,10 @@ const TimelineCanvasRows = memo(function TimelineCanvasRows({
 			}
 			if (item.rowId === CAPTION_ROW_ID) {
 				nextCaptionItems.push(item);
+				continue;
+			}
+			if (item.rowId === GESTURE_ROW_ID) {
+				nextGestureItems.push(item);
 				continue;
 			}
 			if (isAnnotationTrackRowId(item.rowId)) {
@@ -575,6 +591,7 @@ const TimelineCanvasRows = memo(function TimelineCanvasRows({
 			clipItems: nextClipItems,
 			zoomItems: nextZoomItems,
 			captionItems: nextCaptionItems,
+			gestureItems: nextGestureItems,
 			annotationRows: annotationRowsSorted,
 			audioRows: audioRowsSorted,
 		};
@@ -849,6 +866,36 @@ const TimelineCanvasRows = memo(function TimelineCanvasRows({
 					))}
 			</Row>
 
+			{(gestureTrackingEnabled || gestureItems.length > 0) && (
+				<Row
+					id={GESTURE_ROW_ID}
+					compact={
+						annotationRows.length +
+							audioRows.length +
+							(showSourceAudioTrack ? sourceAudioTracks.length : 0) >
+						0
+					}
+					isEmpty={gestureItems.length === 0}
+					hint={HINT_GESTURE}
+				>
+					{gestureItems
+						.filter((item) => !hiddenIds.has(item.id))
+						.map((item) => (
+							<Item
+								id={item.id}
+								key={item.id}
+								rowId={item.rowId}
+								span={item.span}
+								isSelected={item.id === selectedGestureId}
+								onSelectId={onSelectGesture}
+								variant="gesture"
+							>
+								{item.label}
+							</Item>
+						))}
+				</Row>
+			)}
+
 			{annotationRows.map(({ rowId, items: rowItems }, index) => (
 				<Row
 					key={rowId}
@@ -913,6 +960,9 @@ export default function TimelineCanvas({
 	onSelectAnnotation,
 	onSelectAudio,
 	onSelectCaption,
+	gestureTrackingEnabled,
+	selectedGestureId,
+	onSelectGesture,
 	selectedZoomId,
 	selectedClipId,
 	selectedAnnotationId,
@@ -958,6 +1008,7 @@ export default function TimelineCanvas({
 				onSelectAnnotation?.(null);
 				onSelectAudio?.(null);
 				onSelectCaption?.(null);
+				onSelectGesture?.(null);
 			}
 
 			const rect = e.currentTarget.getBoundingClientRect();
@@ -1019,6 +1070,7 @@ export default function TimelineCanvas({
 				onSelectAnnotation?.(null);
 				onSelectAudio?.(null);
 				onSelectCaption?.(null);
+				onSelectGesture?.(null);
 			}
 
 			const rect = localTimelineRef.current.getBoundingClientRect();
@@ -1196,6 +1248,9 @@ export default function TimelineCanvas({
 					onSelectAnnotation={onSelectAnnotation}
 					onSelectAudio={onSelectAudio}
 					onSelectCaption={onSelectCaption}
+					gestureTrackingEnabled={gestureTrackingEnabled}
+					selectedGestureId={selectedGestureId}
+					onSelectGesture={onSelectGesture}
 					sourceAudioTracks={sourceAudioTracks}
 					getSourceAudioTrackSettingsForClip={getSourceAudioTrackSettingsForClip}
 					showSourceAudioTrack={showSourceAudioTrack}

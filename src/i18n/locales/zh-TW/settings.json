@@ -161,7 +161,9 @@
 		"cursor": "游標",
 		"webcam": "網路攝影機",
 		"frame": "外框",
-		"crop": "裁切"
+		"crop": "裁切",
+		"gestures": "Gestures",
+		"gesture": "Gesture"
 	},
 	"captions": {
 		"selectOnTimeline": "在時間軸上選擇字幕進行編輯。",
@@ -258,5 +260,19 @@
 		"title": "更新",
 		"experimental": "實驗性更新",
 		"saveFailed": "無法變更更新頻道。"
+	},
+	"gestures": {
+		"enableTracking": "Fingertip Tracking",
+		"description": "Detect raised fingers in webcam footage and attach floating motion objects ~1cm above fingertips.",
+		"webcamSource": "Webcam Analysis",
+		"scanWebcam": "Scan Webcam for Fingers",
+		"reanalyze": "Re-Scan Webcam Fingers",
+		"noWebcamWarning": "No webcam footage detected in this recording.",
+		"detectedFingers": "Detected Finger Sessions",
+		"defaultObject": "Default Floating Object",
+		"objectType": "Attached Object",
+		"distance": "Distance above fingertip",
+		"size": "Size",
+		"animation": "Animation Style"
 	}
 }

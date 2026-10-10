@@ -161,7 +161,9 @@
 		"cursor": "커서",
 		"webcam": "웹캠",
 		"frame": "프레임",
-		"crop": "자르기"
+		"crop": "자르기",
+		"gestures": "Gestures",
+		"gesture": "Gesture"
 	},
 	"captions": {
 		"selectOnTimeline": "타임라인에서 자막을 선택하여 편집하세요.",
@@ -258,5 +260,19 @@
 		"title": "업데이트",
 		"experimental": "실험적 업데이트",
 		"saveFailed": "업데이트 채널을 변경하지 못했습니다."
+	},
+	"gestures": {
+		"enableTracking": "Fingertip Tracking",
+		"description": "Detect raised fingers in webcam footage and attach floating motion objects ~1cm above fingertips.",
+		"webcamSource": "Webcam Analysis",
+		"scanWebcam": "Scan Webcam for Fingers",
+		"reanalyze": "Re-Scan Webcam Fingers",
+		"noWebcamWarning": "No webcam footage detected in this recording.",
+		"detectedFingers": "Detected Finger Sessions",
+		"defaultObject": "Default Floating Object",
+		"objectType": "Attached Object",
+		"distance": "Distance above fingertip",
+		"size": "Size",
+		"animation": "Animation Style"
 	}
 }

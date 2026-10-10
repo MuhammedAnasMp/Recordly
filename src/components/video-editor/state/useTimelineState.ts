@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { SourceAudioTrackSettings } from "../audio/audioTypes";
 import type {
+	FingerGestureRegion,
+	GestureTrackingSettings,
+} from "../gestures/gestureTypes";
+import { DEFAULT_GESTURE_TRACKING_SETTINGS } from "../gestures/gestureTypes";
+import type {
 	AnnotationRegion,
 	AudioRegion,
 	AutoCaptionSettings,
@@ -27,6 +32,11 @@ export function useTimelineState() {
 	const [audioRegions, setAudioRegions] = useState<AudioRegion[]>([]);
 	const [selectedAudioId, setSelectedAudioId] = useState<string | null>(null);
 	const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
+	const [gestureRegions, setGestureRegions] = useState<FingerGestureRegion[]>([]);
+	const [selectedGestureId, setSelectedGestureId] = useState<string | null>(null);
+	const [gestureSettings, setGestureSettings] = useState<GestureTrackingSettings>(
+		DEFAULT_GESTURE_TRACKING_SETTINGS,
+	);
 	const [sourceAudioTrackSettingsByClip, setSourceAudioTrackSettingsByClip] = useState<
 		Record<string, SourceAudioTrackSettings>
 	>({});
@@ -38,6 +48,17 @@ export function useTimelineState() {
 	const [autoCaptionSettings, setAutoCaptionSettings] = useState<AutoCaptionSettings>(
 		DEFAULT_AUTO_CAPTION_SETTINGS,
 	);
+
+	const updateGestureRegion = (id: string, patch: Partial<FingerGestureRegion>) => {
+		setGestureRegions((prev) =>
+			prev.map((region) => (region.id === id ? { ...region, ...patch } : region)),
+		);
+	};
+
+	const removeGestureRegion = (id: string) => {
+		setGestureRegions((prev) => prev.filter((region) => region.id !== id));
+		setSelectedGestureId((prev) => (prev === id ? null : prev));
+	};
 
 	return {
 		zoomRegions,
@@ -66,6 +87,14 @@ export function useTimelineState() {
 		setSelectedAudioId,
 		selectedCaptionId,
 		setSelectedCaptionId,
+		gestureRegions,
+		setGestureRegions,
+		updateGestureRegion,
+		removeGestureRegion,
+		selectedGestureId,
+		setSelectedGestureId,
+		gestureSettings,
+		setGestureSettings,
 		sourceAudioTrackSettingsByClip,
 		setSourceAudioTrackSettingsByClip,
 		defaultSourceAudioTrackSettings,

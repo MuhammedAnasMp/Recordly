@@ -64,6 +64,11 @@ import {
 	type ZoomTransitionEasing,
 } from "./types";
 import { convertLegacyWebcamRadiusToRoundness, normalizeWebcamCropRegion } from "./webcamOverlay";
+import {
+	DEFAULT_GESTURE_TRACKING_SETTINGS,
+	type FingerGestureRegion,
+	type GestureTrackingSettings,
+} from "./gestures/gestureTypes";
 
 export const PROJECT_VERSION = 2;
 export const MACOS_DEFAULT_BORDER_RADIUS_PERCENT = 8;
@@ -129,6 +134,8 @@ export interface ProjectEditorState {
 	speedRegions: SpeedRegion[];
 	annotationRegions: AnnotationRegion[];
 	audioRegions: AudioRegion[];
+	gestureRegions?: FingerGestureRegion[];
+	gestureSettings?: GestureTrackingSettings;
 	autoCaptions: CaptionCue[];
 	autoCaptionSettings: AutoCaptionSettings;
 	webcam: WebcamOverlaySettings;
@@ -635,6 +642,68 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				})
 		: [];
 
+	const normalizedGestureRegions: FingerGestureRegion[] = Array.isArray(
+		(editor as Partial<ProjectEditorState>).gestureRegions,
+	)
+		? ((editor as Partial<ProjectEditorState>).gestureRegions as FingerGestureRegion[])
+				.filter((region): region is FingerGestureRegion =>
+					Boolean(region && typeof region.id === "string"),
+				)
+				.map((region) => {
+					const rawStart = isFiniteNumber(region.startMs)
+						? Math.round(region.startMs)
+						: 0;
+					const rawEnd = isFiniteNumber(region.endMs)
+						? Math.round(region.endMs)
+						: rawStart + 1000;
+					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
+					const endMs = Math.max(startMs + 1, rawEnd);
+
+					return {
+						id: region.id,
+						hand: region.hand === "left" ? "left" : "right",
+						finger: region.finger || "index",
+						startMs,
+						endMs,
+						samples: Array.isArray(region.samples) ? region.samples : [],
+						attachment: {
+							...DEFAULT_GESTURE_TRACKING_SETTINGS.defaultAttachment,
+							...(region.attachment && typeof region.attachment === "object"
+								? region.attachment
+								: {}),
+						},
+					};
+				})
+		: [];
+
+	const rawGestureSettings: Partial<GestureTrackingSettings> =
+		editor.gestureSettings && typeof editor.gestureSettings === "object"
+			? (editor.gestureSettings as Partial<GestureTrackingSettings>)
+			: {};
+	const normalizedGestureSettings: GestureTrackingSettings = {
+		enabled:
+			typeof rawGestureSettings.enabled === "boolean"
+				? rawGestureSettings.enabled
+				: DEFAULT_GESTURE_TRACKING_SETTINGS.enabled,
+		confidenceThreshold: isFiniteNumber(rawGestureSettings.confidenceThreshold)
+			? clamp(rawGestureSettings.confidenceThreshold, 0.1, 0.95)
+			: DEFAULT_GESTURE_TRACKING_SETTINGS.confidenceThreshold,
+		minHoldMs: isFiniteNumber(rawGestureSettings.minHoldMs)
+			? clamp(rawGestureSettings.minHoldMs, 50, 1000)
+			: DEFAULT_GESTURE_TRACKING_SETTINGS.minHoldMs,
+		releaseMs: isFiniteNumber(rawGestureSettings.releaseMs)
+			? clamp(rawGestureSettings.releaseMs, 50, 1000)
+			: DEFAULT_GESTURE_TRACKING_SETTINGS.releaseMs,
+		defaultAttachment: {
+			...DEFAULT_GESTURE_TRACKING_SETTINGS.defaultAttachment,
+			...(rawGestureSettings.defaultAttachment &&
+			typeof rawGestureSettings.defaultAttachment === "object"
+				? rawGestureSettings.defaultAttachment
+				: {}),
+		},
+		showDebugLandmarks: Boolean(rawGestureSettings.showDebugLandmarks),
+	};
+
 	const normalizedAutoCaptions: CaptionCue[] = Array.isArray(
 		(editor as Partial<ProjectEditorState>).autoCaptions,
 	)
@@ -1023,6 +1092,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		audioRegions: sequenceChanged
 			? rippleRegionAnchors(normalizedAudioRegions, normalizedClipRegions, sequenceClips)
 			: normalizedAudioRegions,
+		gestureRegions: sequenceChanged
+			? rippleRegions(normalizedGestureRegions, normalizedClipRegions, sequenceClips)
+			: normalizedGestureRegions,
+		gestureSettings: normalizedGestureSettings,
 		autoCaptions: normalizedAutoCaptions,
 		autoCaptionSettings: normalizedAutoCaptionSettings,
 		webcam: {

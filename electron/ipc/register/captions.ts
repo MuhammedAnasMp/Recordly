@@ -112,6 +112,39 @@ export function registerCaptionHandlers() {
 		}
 	});
 
+	ipcMain.handle("open-image-file-picker", async () => {
+		try {
+			const result = await dialog.showOpenDialog({
+				title: "Select Image File",
+				filters: [
+					{
+						name: "Image Files",
+						extensions: ["png", "jpg", "jpeg", "webp", "svg", "gif", "avif"],
+					},
+					{ name: "All Files", extensions: ["*"] },
+				],
+				properties: ["openFile"],
+			});
+
+			if (result.canceled || result.filePaths.length === 0) {
+				return { success: false, canceled: true };
+			}
+
+			approveUserPath(result.filePaths[0]);
+			return {
+				success: true,
+				path: result.filePaths[0],
+			};
+		} catch (error) {
+			console.error("Failed to open image file picker:", error);
+			return {
+				success: false,
+				message: "Failed to open image file picker",
+				error: String(error),
+			};
+		}
+	});
+
 	ipcMain.handle("open-whisper-executable-picker", async () => {
 		try {
 			const result = await dialog.showOpenDialog({

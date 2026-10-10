@@ -9,6 +9,7 @@ import type {
 	TrimRegion,
 	ZoomRegion,
 } from "../../types";
+import type { FingerGestureRegion } from "../../gestures/gestureTypes";
 import {
 	getAnnotationTrackIndex,
 	getAudioTrackIndex,
@@ -27,6 +28,7 @@ interface UseTimelineDndBindingsParams {
 	speedRegions: SpeedRegion[];
 	audioRegions: AudioRegion[];
 	captionCues: CaptionCue[];
+	gestureRegions?: FingerGestureRegion[];
 	onZoomSpanChange: (id: string, span: Span) => void;
 	onTrimSpanChange?: (id: string, span: Span) => void;
 	onClipSpanChange?: (id: string, span: ClipSequenceSpan) => void;
@@ -34,6 +36,7 @@ interface UseTimelineDndBindingsParams {
 	onSpeedSpanChange?: (id: string, span: Span) => void;
 	onAudioSpanChange?: (id: string, span: Span, trackIndex?: number) => void;
 	onCaptionSpanChange?: (id: string, span: Span) => void;
+	onGestureSpanChange?: (id: string, span: Span) => void;
 }
 
 type TimelineItemKind =
@@ -44,6 +47,7 @@ type TimelineItemKind =
 	| "speed"
 	| "audio"
 	| "caption"
+	| "gesture"
 	| null;
 
 export function useTimelineDndBindings({
@@ -54,6 +58,7 @@ export function useTimelineDndBindings({
 	speedRegions,
 	audioRegions,
 	captionCues,
+	gestureRegions = [],
 	onZoomSpanChange,
 	onTrimSpanChange,
 	onClipSpanChange,
@@ -61,6 +66,7 @@ export function useTimelineDndBindings({
 	onSpeedSpanChange,
 	onAudioSpanChange,
 	onCaptionSpanChange,
+	onGestureSpanChange,
 }: UseTimelineDndBindingsParams) {
 	const resolveItemKind = useCallback(
 		(id: string): TimelineItemKind => {
@@ -71,6 +77,7 @@ export function useTimelineDndBindings({
 			if (speedRegions.some((r) => r.id === id)) return "speed";
 			if (audioRegions.some((r) => r.id === id)) return "audio";
 			if (captionCues.some((c) => c.id === id)) return "caption";
+			if (gestureRegions.some((g) => g.id === id)) return "gesture";
 			return null;
 		},
 		[
@@ -81,6 +88,7 @@ export function useTimelineDndBindings({
 			speedRegions,
 			audioRegions,
 			captionCues,
+			gestureRegions,
 		],
 	);
 
@@ -148,8 +156,9 @@ export function useTimelineDndBindings({
 				annotationRegions,
 				audioRegions,
 				captionCues,
+				gestureRegions,
 			}),
-		[zoomRegions, clipRegions, annotationRegions, audioRegions, captionCues],
+		[zoomRegions, clipRegions, annotationRegions, audioRegions, captionCues, gestureRegions],
 	);
 
 	const allRegionSpans = useMemo(
@@ -160,8 +169,9 @@ export function useTimelineDndBindings({
 				audioRegions,
 				annotationRegions,
 				captionCues,
+				gestureRegions,
 			}),
-		[zoomRegions, clipRegions, audioRegions, annotationRegions, captionCues],
+		[zoomRegions, clipRegions, audioRegions, annotationRegions, captionCues, gestureRegions],
 	);
 
 	const getResolvedDropRowId = useCallback(
@@ -188,6 +198,8 @@ export function useTimelineDndBindings({
 				onAudioSpanChange?.(id, span, nextTrackIndex);
 			} else if (itemKind === "caption") {
 				onCaptionSpanChange?.(id, span);
+			} else if (itemKind === "gesture") {
+				onGestureSpanChange?.(id, span);
 			}
 		},
 		[
@@ -200,6 +212,7 @@ export function useTimelineDndBindings({
 			onSpeedSpanChange,
 			onAudioSpanChange,
 			onCaptionSpanChange,
+			onGestureSpanChange,
 		],
 	);
 

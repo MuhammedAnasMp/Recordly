@@ -161,7 +161,9 @@
 		"cursor": "Cursor",
 		"webcam": "Webcam",
 		"frame": "Quadro",
-		"crop": "Corte"
+		"crop": "Corte",
+		"gestures": "Gestures",
+		"gesture": "Gesture"
 	},
 	"captions": {
 		"selectOnTimeline": "Selecione uma legenda na linha do tempo para editá-la.",
@@ -258,5 +260,19 @@
 		"title": "Atualizações",
 		"experimental": "Atualizações experimentais",
 		"saveFailed": "Falha ao alterar o canal de atualização."
+	},
+	"gestures": {
+		"enableTracking": "Fingertip Tracking",
+		"description": "Detect raised fingers in webcam footage and attach floating motion objects ~1cm above fingertips.",
+		"webcamSource": "Webcam Analysis",
+		"scanWebcam": "Scan Webcam for Fingers",
+		"reanalyze": "Re-Scan Webcam Fingers",
+		"noWebcamWarning": "No webcam footage detected in this recording.",
+		"detectedFingers": "Detected Finger Sessions",
+		"defaultObject": "Default Floating Object",
+		"objectType": "Attached Object",
+		"distance": "Distance above fingertip",
+		"size": "Size",
+		"animation": "Animation Style"
 	}
 }

@@ -67,6 +67,12 @@ interface UseTimelineEditorRuntimeParams {
 	onCaptionAdded?: (span: Span) => void;
 	selectedCaptionId?: string | null;
 	onSelectCaption?: (id: string | null) => void;
+	gestureRegions?: import("../../gestures/gestureTypes").FingerGestureRegion[];
+	onGestureSpanChange?: (id: string, span: Span) => void;
+	onGestureDelete?: (id: string) => void;
+	selectedGestureId?: string | null;
+	onSelectGesture?: (id: string | null) => void;
+	gestureTrackingEnabled?: boolean;
 	isMac: boolean;
 	keyShortcuts: TimelineShortcutBindings;
 	isTimelineFocusedRef: RefObject<boolean | null>;
@@ -117,6 +123,11 @@ export function useTimelineEditorRuntime({
 	onCaptionAdded,
 	selectedCaptionId,
 	onSelectCaption,
+	gestureRegions = [],
+	onGestureSpanChange,
+	onGestureDelete,
+	selectedGestureId,
+	onSelectGesture,
 	isMac,
 	keyShortcuts,
 	isTimelineFocusedRef,
@@ -137,12 +148,14 @@ export function useTimelineEditorRuntime({
 		deleteSelectedAnnotation,
 		deleteSelectedAudio,
 		deleteSelectedCaption,
+		deleteSelectedGesture,
 		clearSelectedBlocks,
 		handleSelectZoom,
 		handleSelectClip,
 		handleSelectAnnotation,
 		handleSelectAudio,
 		handleSelectCaption,
+		handleSelectGesture,
 		cycleAnnotationsAtCurrentTime,
 	} = useTimelineSelection({
 		totalMs,
@@ -156,16 +169,19 @@ export function useTimelineEditorRuntime({
 		selectedAnnotationId,
 		selectedAudioId,
 		selectedCaptionId,
+		selectedGestureId,
 		onZoomDelete,
 		onClipDelete,
 		onAnnotationDelete,
 		onAudioDelete,
 		onCaptionDelete,
+		onGestureDelete,
 		onSelectZoom,
 		onSelectClip,
 		onSelectAnnotation,
 		onSelectAudio,
 		onSelectCaption,
+		onSelectGesture,
 	});
 
 	useTimelineNormalization({
@@ -195,6 +211,7 @@ export function useTimelineEditorRuntime({
 		speedRegions,
 		audioRegions,
 		captionCues,
+		gestureRegions,
 		onZoomSpanChange,
 		onTrimSpanChange,
 		onClipSpanChange,
@@ -202,6 +219,7 @@ export function useTimelineEditorRuntime({
 		onSpeedSpanChange,
 		onAudioSpanChange,
 		onCaptionSpanChange,
+		onGestureSpanChange,
 	});
 
 	const {
@@ -320,6 +338,8 @@ export function useTimelineEditorRuntime({
 		handleSelectAnnotation,
 		handleSelectAudio,
 		handleSelectCaption,
+		handleSelectGesture,
+		deleteSelectedGesture,
 		hasOverlap,
 		timelineItems,
 		allRegionSpans,

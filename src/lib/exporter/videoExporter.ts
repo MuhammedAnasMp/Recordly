@@ -17,6 +17,10 @@ import type {
 	ZoomRegion,
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
+import type {
+	FingerGestureRegion,
+	GestureTrackingSettings,
+} from "@/components/video-editor/gestures/gestureTypes";
 import { getEffectiveVideoStreamDurationSeconds } from "@/lib/mediaTiming";
 import { AudioProcessor, isAacAudioEncodingSupported } from "./audioEncoder";
 import { buildEditedTrackSourceSegments, classifyEditedTrackStrategy } from "./editedTrackStrategy";
@@ -71,6 +75,8 @@ interface VideoExporterConfig extends ExportConfig {
 	webcam?: WebcamOverlaySettings;
 	webcamUrl?: string | null;
 	annotationRegions?: AnnotationRegion[];
+	gestureRegions?: FingerGestureRegion[];
+	gestureSettings?: GestureTrackingSettings;
 	autoCaptions?: CaptionCue[];
 	autoCaptionSettings?: AutoCaptionSettings;
 	cursorTelemetry?: CursorTelemetryPoint[];
@@ -242,6 +248,8 @@ export class VideoExporter {
 				videoWidth: videoInfo.width,
 				videoHeight: videoInfo.height,
 				annotationRegions: this.config.annotationRegions,
+				gestureRegions: this.config.gestureRegions,
+				gestureSettings: this.config.gestureSettings,
 				autoCaptions: this.config.autoCaptions,
 				autoCaptionSettings: this.config.autoCaptionSettings,
 				speedRegions: this.config.speedRegions,

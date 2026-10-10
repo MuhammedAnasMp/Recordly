@@ -33,6 +33,14 @@ import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import CaptionListPanel from "./CaptionListPanel";
 import { CaptionEditorStudio } from "./captions/CaptionEditorStudio";
 import type { CaptionRetimeSpan } from "./captionOps";
+import { GestureSectionPanel } from "./gestures/GestureSectionPanel";
+import { GestureItemPanel } from "./gestures/GestureItemPanel";
+import {
+	DEFAULT_GESTURE_TRACKING_SETTINGS,
+	type FingerGestureRegion,
+	type GestureAttachment,
+	type GestureTrackingSettings,
+} from "./gestures/gestureTypes";
 import {
 	CURSOR_MOTION_PRESETS,
 	type CursorMotionPresetId,
@@ -550,6 +558,20 @@ interface SettingsPanelProps {
 	onCaptionDelete?: (id: string) => void;
 	nativeCaptureUnavailableSession?: boolean;
 	onOpenNativeCaptureUnavailableModal?: () => void;
+	gestureRegions?: FingerGestureRegion[];
+	gestureSettings?: GestureTrackingSettings;
+	onGestureSettingsChange?: (settings: GestureTrackingSettings) => void;
+	onUpdateDefaultAttachment?: (partial: Partial<GestureAttachment>) => void;
+	onUpdateGestureRegions?: (regions: FingerGestureRegion[]) => void;
+	selectedGestureId?: string | null;
+	onAnalyzeWebcamGestures?: () => Promise<void>;
+	isAnalyzingGestures?: boolean;
+	gestureAnalysisProgress?: number;
+	webcamSourcePath?: string | null;
+	onSelectGestureRegion?: (id: string) => void;
+	onUpdateGestureRegion?: (updated: FingerGestureRegion) => void;
+	onDeleteGestureRegion?: (id: string) => void;
+	onBackToGestures?: () => void;
 }
 
 const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
@@ -981,6 +1003,20 @@ export function SettingsPanel({
 	onCaptionDelete,
 	nativeCaptureUnavailableSession = false,
 	onOpenNativeCaptureUnavailableModal,
+	gestureRegions = [],
+	gestureSettings,
+	onGestureSettingsChange,
+	onUpdateDefaultAttachment,
+	onUpdateGestureRegions,
+	selectedGestureId = null,
+	onAnalyzeWebcamGestures,
+	isAnalyzingGestures = false,
+	gestureAnalysisProgress = 0,
+	webcamSourcePath = null,
+	onSelectGestureRegion,
+	onUpdateGestureRegion,
+	onDeleteGestureRegion,
+	onBackToGestures,
 }: SettingsPanelProps) {
 	const tSettings = useScopedT("settings");
 	const { locale, setLocale, t } = useI18n();
@@ -2513,6 +2549,39 @@ export function SettingsPanel({
 			</section>
 		);
 
+		const selectedGesture = gestureRegions.find((r) => r.id === selectedGestureId);
+
+		const gesturesSectionContent = (
+			<GestureSectionPanel
+				t={t}
+				settings={gestureSettings ?? DEFAULT_GESTURE_TRACKING_SETTINGS}
+				onSettingsChange={onGestureSettingsChange ?? (() => {})}
+				onUpdateDefaultAttachment={onUpdateDefaultAttachment}
+				gestureRegions={gestureRegions}
+				onUpdateRegions={onUpdateGestureRegions}
+				onAnalyzeWebcam={onAnalyzeWebcamGestures ?? (async () => {})}
+				isAnalyzing={isAnalyzingGestures}
+				analysisProgress={gestureAnalysisProgress}
+				webcamSourcePath={webcamSourcePath ?? webcam?.sourcePath ?? null}
+				onSelectRegion={onSelectGestureRegion}
+				onDeleteRegion={onDeleteGestureRegion}
+				selectedRegionId={selectedGestureId}
+				advanced={advanced}
+			/>
+		);
+
+		const gestureItemSectionContent = selectedGesture ? (
+			<GestureItemPanel
+				t={t}
+				region={selectedGesture}
+				onRegionChange={onUpdateGestureRegion ?? (() => {})}
+				onDeleteRegion={onDeleteGestureRegion ?? (() => {})}
+				onBack={onBackToGestures}
+			/>
+		) : (
+			gesturesSectionContent
+		);
+
 		switch (activeEffectSection) {
 			case "settings":
 				return settingsSectionContent;
@@ -2528,6 +2597,10 @@ export function SettingsPanel({
 				return sceneSectionContent;
 			case "crop":
 				return sceneSectionContent;
+			case "gestures":
+				return gesturesSectionContent;
+			case "gesture":
+				return gestureItemSectionContent;
 			case "captions":
 				return captionsSectionContent;
 			case "caption":

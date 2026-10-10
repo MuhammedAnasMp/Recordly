@@ -161,7 +161,9 @@
 		"cursor": "Cursor",
 		"webcam": "Webcam",
 		"frame": "Kader",
-		"crop": "Bijsnijden"
+		"crop": "Bijsnijden",
+		"gestures": "Gestures",
+		"gesture": "Gesture"
 	},
 	"captions": {
 		"selectOnTimeline": "Selecteer een ondertitel op de tijdlijn om deze te bewerken.",
@@ -258,5 +260,19 @@
 		"title": "Updates",
 		"experimental": "Experimentele updates",
 		"saveFailed": "Kan het updatekanaal niet wijzigen."
+	},
+	"gestures": {
+		"enableTracking": "Fingertip Tracking",
+		"description": "Detect raised fingers in webcam footage and attach floating motion objects ~1cm above fingertips.",
+		"webcamSource": "Webcam Analysis",
+		"scanWebcam": "Scan Webcam for Fingers",
+		"reanalyze": "Re-Scan Webcam Fingers",
+		"noWebcamWarning": "No webcam footage detected in this recording.",
+		"detectedFingers": "Detected Finger Sessions",
+		"defaultObject": "Default Floating Object",
+		"objectType": "Attached Object",
+		"distance": "Distance above fingertip",
+		"size": "Size",
+		"animation": "Animation Style"
 	}
 }

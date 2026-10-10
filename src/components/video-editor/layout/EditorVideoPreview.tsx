@@ -98,6 +98,8 @@ export function EditorVideoPreview({
 			webcamVideoPath={
 				appearance.webcam.sourcePath ? appearance.resolvedWebcamVideoUrl : null
 			}
+			gestureRegions={timeline.gestureRegions}
+			gestureSettings={timeline.gestureSettings}
 			annotationRegions={timeline.annotationRegions}
 			autoCaptions={timeline.autoCaptions}
 			autoCaptionSettings={timeline.autoCaptionSettings}

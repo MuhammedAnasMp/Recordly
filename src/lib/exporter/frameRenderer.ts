@@ -19,8 +19,14 @@ import type {
 import {
 	BASE_PREVIEW_HEIGHT,
 	BASE_PREVIEW_WIDTH,
+	DEFAULT_WEBCAM_OVERLAY,
 	DEFAULT_WEBCAM_ROUNDNESS,
 } from "@/components/video-editor/types";
+import type {
+	FingerGestureRegion,
+	GestureTrackingSettings,
+} from "@/components/video-editor/gestures/gestureTypes";
+import { renderGestureObjects } from "./gestureObjectRenderer";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
@@ -106,6 +112,8 @@ interface FrameRenderConfig {
 	videoWidth: number;
 	videoHeight: number;
 	annotationRegions?: AnnotationRegion[];
+	gestureRegions?: FingerGestureRegion[];
+	gestureSettings?: GestureTrackingSettings;
 	autoCaptions?: CaptionCue[];
 	autoCaptionSettings?: AutoCaptionSettings;
 	speedRegions?: SpeedRegion[];
@@ -1526,6 +1534,24 @@ export class FrameRenderer {
 				this.config.width,
 				this.config.height,
 				timestamp / 1000,
+			);
+		}
+
+		if (
+			this.config.gestureSettings?.enabled &&
+			this.config.gestureRegions &&
+			this.config.gestureRegions.length > 0 &&
+			this.compositeCtx
+		) {
+			renderGestureObjects(
+				this.compositeCtx,
+				this.config.gestureRegions,
+				this.config.gestureSettings,
+				this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
+				this.config.width,
+				this.config.height,
+				timestamp / 1000,
+				this.animationState.appliedScale,
 			);
 		}
 	}

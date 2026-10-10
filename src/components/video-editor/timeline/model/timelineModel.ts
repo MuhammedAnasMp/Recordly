@@ -7,7 +7,7 @@ import type {
 	ZoomRegion,
 } from "../../types";
 import { getClipSourceEndMs, getClipSourceStartMs } from "../../types";
-import { CAPTION_ROW_ID, CLIP_ROW_ID, ZOOM_ROW_ID } from "../core/constants";
+import { CAPTION_ROW_ID, CLIP_ROW_ID, GESTURE_ROW_ID, ZOOM_ROW_ID } from "../core/constants";
 import {
 	getAnnotationTrackIndex,
 	getAnnotationTrackRowId,
@@ -17,6 +17,11 @@ import {
 	isAudioTrackRowId,
 } from "../core/rows";
 import type { TimelineRegionSpan, TimelineRenderItem } from "../core/timelineTypes";
+import {
+	type FingerGestureRegion,
+	getFingerDisplayName,
+	getFingerEmoji,
+} from "../../gestures/gestureTypes";
 
 export function getAnnotationLabel(region: AnnotationRegion): string {
 	if (region.type === "text") {
@@ -49,8 +54,16 @@ export function buildTimelineItems(params: {
 	annotationRegions: AnnotationRegion[];
 	audioRegions: AudioRegion[];
 	captionCues?: CaptionCue[];
+	gestureRegions?: FingerGestureRegion[];
 }): TimelineRenderItem[] {
-	const { zoomRegions, clipRegions, annotationRegions, audioRegions, captionCues = [] } = params;
+	const {
+		zoomRegions,
+		clipRegions,
+		annotationRegions,
+		audioRegions,
+		captionCues = [],
+		gestureRegions = [],
+	} = params;
 	const zooms: TimelineRenderItem[] = zoomRegions.map((region, index) => ({
 		id: region.id,
 		rowId: ZOOM_ROW_ID,
@@ -106,12 +119,21 @@ export function buildTimelineItems(params: {
 		variant: "caption",
 	}));
 
-	return [...zooms, ...clips, ...annotations, ...audios, ...captions];
+	const gestures: TimelineRenderItem[] = gestureRegions.map((gesture) => ({
+		id: gesture.id,
+		rowId: GESTURE_ROW_ID,
+		span: { start: gesture.startMs, end: gesture.endMs },
+		label: `${getFingerEmoji(gesture.finger)} ${getFingerDisplayName(gesture.finger, gesture.hand)} ${gesture.attachment?.content || ""}`.trim(),
+		variant: "gesture",
+	}));
+
+	return [...zooms, ...clips, ...annotations, ...audios, ...captions, ...gestures];
 }
 
 export function buildAllRegionSpans(params: {
 	annotationRegions?: AnnotationRegion[];
 	captionCues?: CaptionCue[];
+	gestureRegions?: FingerGestureRegion[];
 	zoomRegions: ZoomRegion[];
 	clipRegions: ClipRegion[];
 	audioRegions: AudioRegion[];
@@ -150,6 +172,12 @@ export function buildAllRegionSpans(params: {
 			start: r.startMs,
 			end: r.endMs,
 			rowId: CAPTION_ROW_ID,
+		})),
+		...(params.gestureRegions ?? []).map((r) => ({
+			id: r.id,
+			start: r.startMs,
+			end: r.endMs,
+			rowId: GESTURE_ROW_ID,
 		})),
 	];
 }

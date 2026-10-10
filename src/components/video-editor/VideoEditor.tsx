@@ -11,6 +11,7 @@ import { useExportSettings } from "./export/useExportSettings";
 import { useTimelineEditingController } from "./hooks/useTimelineEditingController";
 import { EditorShell } from "./layout/EditorShell";
 import { useEditorSettingsPanelProps } from "./layout/useEditorSettingsPanelProps";
+import { useGestureController } from "./gestures/useGestureController";
 import { useVideoEditorPresets } from "./presets/useVideoEditorPresets";
 import { useEditorProjectController } from "./project/useEditorProjectController";
 import { useProjectLibraryController } from "./project/useProjectLibraryController";
@@ -353,6 +354,16 @@ export default function VideoEditor() {
 			return 16 / 9;
 		})(),
 	);
+	const gestureController = useGestureController({
+		webcamSourcePath: appearance.webcam?.sourcePath ?? null,
+		gestureSettings: timeline.gestureSettings,
+		setGestureSettings: timeline.setGestureSettings,
+		setGestureRegions: timeline.setGestureRegions,
+		selectedGestureId: timeline.selectedGestureId,
+		setSelectedGestureId: timeline.setSelectedGestureId,
+		setActiveEffectSection,
+	});
+
 	const settingsPanelProps = useEditorSettingsPanelProps({
 		activeEffectSection,
 		appearance,
@@ -363,6 +374,7 @@ export default function VideoEditor() {
 		captionCommands,
 		annotationCommands,
 		autoCaptionController,
+		gestureController,
 		effectiveShowCursor,
 		handleShowCursorChange,
 		currentTime,

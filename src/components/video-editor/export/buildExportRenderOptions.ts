@@ -59,6 +59,8 @@ export function buildExportRenderOptions({
 			appearance.resolvedWebcamVideoUrl ??
 			(appearance.webcam.sourcePath ? toFileUrl(appearance.webcam.sourcePath) : null),
 		annotationRegions: timeline.annotationRegions,
+		gestureRegions: timeline.gestureRegions,
+		gestureSettings: timeline.gestureSettings,
 		autoCaptions: timeline.autoCaptions,
 		autoCaptionSettings: timeline.autoCaptionSettings,
 		zoomRegions: effectiveZoomRegions,

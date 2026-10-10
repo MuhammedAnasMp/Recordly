@@ -78,6 +78,12 @@ export interface TimelineEditorProps {
 	captionQuickAddEnabled?: boolean;
 	selectedCaptionId?: string | null;
 	onSelectCaption?: (id: string | null) => void;
+	gestureRegions?: import("../gestures/gestureTypes").FingerGestureRegion[];
+	onGestureSpanChange?: (id: string, span: Span) => void;
+	onGestureDelete?: (id: string) => void;
+	selectedGestureId?: string | null;
+	onSelectGesture?: (id: string | null) => void;
+	gestureTrackingEnabled?: boolean;
 	videoPath?: string | null;
 	videoSourcePath?: string | null;
 	cursorTelemetrySourcePath?: string | null;
@@ -161,6 +167,12 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			captionQuickAddEnabled = true,
 			selectedCaptionId,
 			onSelectCaption,
+			gestureRegions = [],
+			onGestureSpanChange,
+			onGestureDelete,
+			selectedGestureId,
+			onSelectGesture,
+			gestureTrackingEnabled = false,
 			videoPath,
 			videoSourcePath,
 			cursorTelemetrySourcePath,
@@ -343,6 +355,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			handleSelectAnnotation,
 			handleSelectAudio,
 			handleSelectCaption,
+			handleSelectGesture,
 			hasOverlap,
 			timelineItems,
 			allRegionSpans,
@@ -398,6 +411,12 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			onCaptionAdded,
 			selectedCaptionId,
 			onSelectCaption,
+			gestureRegions,
+			onGestureSpanChange,
+			onGestureDelete,
+			selectedGestureId,
+			onSelectGesture,
+			gestureTrackingEnabled,
 			isMac,
 			keyShortcuts,
 			isTimelineFocusedRef,
@@ -500,6 +519,9 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 							onSelectAnnotation={handleSelectAnnotation}
 							onSelectAudio={handleSelectAudio}
 							onSelectCaption={handleSelectCaption}
+							gestureTrackingEnabled={gestureTrackingEnabled}
+							selectedGestureId={selectedGestureId}
+							onSelectGesture={handleSelectGesture}
 							selectedZoomId={selectedZoomId}
 							selectedClipId={selectedClipId}
 							selectedAnnotationId={selectedAnnotationId}

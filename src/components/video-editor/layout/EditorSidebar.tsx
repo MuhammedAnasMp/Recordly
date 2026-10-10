@@ -1,6 +1,6 @@
 import { AccountAvatar } from "@/components/ui/account-avatar";
 import type { User } from "@supabase/supabase-js";
-import { Camera, ClosedCaptioning, Cursor, Gear, FrameCorners } from "@/components/ui/icons";
+import { Camera, ClosedCaptioning, Cursor, Gear, FrameCorners, HandPointing } from "@/components/ui/icons";
 import {
 	ToggleButtonGroup,
 	ToggleButton,
@@ -40,7 +40,7 @@ export function EditorSidebar({
 	const advanced = advancedSections[activeSection] ?? false;
 	const hasAdvanced =
 		!settingsPanelProps.selectedAnnotationId &&
-		["scene", "frame", "crop", "cursor", "webcam", "captions", "settings", "zoom"].includes(
+		["scene", "frame", "crop", "cursor", "webcam", "gestures", "captions", "settings", "zoom"].includes(
 			activeSection,
 		);
 	const sections = useMemo(
@@ -52,6 +52,11 @@ export function EditorSidebar({
 			},
 			{ id: "cursor" as const, label: t("settings.sections.cursor", "Cursor"), icon: Cursor },
 			{ id: "webcam" as const, label: t("settings.sections.webcam", "Webcam"), icon: Camera },
+			{
+				id: "gestures" as const,
+				label: t("settings.sections.gestures", "Gestures"),
+				icon: HandPointing,
+			},
 			{
 				id: "captions" as const,
 				label: t("settings.sections.captions", "Captions"),
